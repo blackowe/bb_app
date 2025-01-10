@@ -29,6 +29,7 @@ step 4: in web browswer enter the following address:
   $env:DB_NAME='bb-app-db'
   $env:DB_USER='bb-user'
   $env:DB_PASS='abcd69'
+  $env:USE_LOCAL_DB=true
 
 3. run main.py:
   python main.py

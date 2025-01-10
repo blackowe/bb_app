@@ -1,3 +1,53 @@
+
+import os
+from sqlalchemy import create_engine
+
+def connect_with_connector():
+    # Use SQLite for local development
+    if os.getenv("USE_LOCAL_DB", "false").lower() == "true":
+        engine = create_engine("sqlite:///local.db", echo=True)
+        print("Using local SQLite database")
+        return engine
+
+    # Default to Google Cloud SQL setup
+    from google.cloud.sql.connector import Connector, IPTypes
+    import pymysql
+
+    instance_connection_name = os.environ["INSTANCE_CONNECTION_NAME"]
+    db_user = os.environ["DB_USER"]
+    db_pass = os.environ["DB_PASS"]
+    db_name = os.environ["DB_NAME"]
+
+    connector = Connector(IPTypes.PRIVATE if os.getenv("PRIVATE_IP") else IPTypes.PUBLIC)
+
+    def getconn():
+        conn = connector.connect(
+            instance_connection_name,
+            "pymysql",
+            user=db_user,
+            password=db_pass,
+            db=db_name,
+        )
+        return conn
+
+    engine = create_engine(
+        "mysql+pymysql://",
+        creator=getconn,
+        pool_size=5,
+        max_overflow=2,
+        pool_timeout=30,
+        pool_recycle=1800,
+    )
+    print("Using Google Cloud SQL database")
+    return engine
+
+
+
+###===================== USE WHEN READY TO MIGRATE TO GOOGLE CLOUD SQL =====================### 
+# This code is used to connect to a Google Cloud SQL instance using the Cloud SQL Python Connector package.
+"""
+
+
 # Copyright 2022 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,11 +72,11 @@ import sqlalchemy
 
 
 def connect_with_connector() -> sqlalchemy.engine.base.Engine:
-    """
+
     Initializes a connection pool for a Cloud SQL instance of MySQL.
 
     Uses the Cloud SQL Python Connector package.
-    """
+
     # Note: Saving credentials in environment variables is convenient, but not
     # secure - consider a more secure solution such as
     # Cloud Secret Manager (https://cloud.google.com/secret-manager) to help
@@ -77,3 +127,4 @@ def connect_with_connector() -> sqlalchemy.engine.base.Engine:
 
 
 # [END cloud_sql_mysql_sqlalchemy_connect_connector]
+"""

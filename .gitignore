@@ -4,7 +4,7 @@ __pycache__/
 
 # Environment files
 env
-
+.env
 # Logs
 *.log
 
@@ -13,3 +13,4 @@ venv/
 
 gcp.key.json
 README%20start%20up
+local.db
