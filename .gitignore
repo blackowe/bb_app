@@ -1,0 +1,14 @@
+# Python-related
+__pycache__/
+*.py[cod]
+
+# Environment files
+env
+
+# Logs
+*.log
+
+# Virtual environments
+venv/
+
+gcp.key.json

@@ -1,0 +1,114 @@
+/* Navigation Bar Styles */
+nav {
+  background-color: #333;
+  padding: 1rem;
+  position: sticky; /* Keep the nav bar at the top */
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+nav a:hover {
+  color: #ddd;
+}
+
+
+#antigen-input-section {
+  margin-top: 1rem;
+  margin-left: 0; /* Align to the left */
+  text-align: left;
+}
+
+#antigen-input-table, #results-section table {
+  width: auto; /* Adjust table width */
+  border-collapse: collapse;
+  margin-left: 0; /* Ensure left alignment */
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+
+
+/* Table Styles *//* General Table Styles */
+/* General Table Styles */
+.antigen-table {
+  width: auto;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.antigen-table th, .antigen-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.antigen-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+#antigen-input-table input {
+  width: 50px;
+  height: 30px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+
+/* Table Container Alignment */
+.table-container {
+  text-align: left; /* Left-align content inside the container */
+  margin-left: 0; /* Ensure no margin pushes it right */
+  margin-top: 1rem; /* Add space above containers */
+}
+
+/* Remove default centering of tables */
+.antigen-table {
+  margin-left: 0; /* Align tables to the left */
+}
+
+
+/* -------------- BUTTONS ---------------- */
+
+button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border: none;
+  background-color: #333;
+  color: white;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+button:hover {
+  background-color: #555;
+}

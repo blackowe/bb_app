@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Antibody Identification</h1>
+<p>Select an antigram and enter patient reactions to identify possible antibodies.</p>
+
+<!-- Dropdown to Select Antigram -->
+<div>
+    <select id="lot-number-dropdown">
+        <option value="">Select Antigram Lot Number</option>
+        {% for lot_number in lot_numbers %}
+        <option value="{{ lot_number }}">{{ lot_number }}</option>
+        {% endfor %}
+    </select>
+    <button id="load-antigram-button">Load Antigram</button>
+</div>
+
+<!-- Antigen Input Table -->
+<div id="antigen-input-section">
+    <table id="antigen-input-table">
+        <thead>
+            <tr>
+                <th>Cell Number</th>
+                {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+                <th>{{ antigen }}</th>
+                {% endfor %}
+                <th>Patient Reaction</th>
+            </tr>
+        </thead>
+        <tbody id="antigen-input-body">
+            <!-- Rows will be dynamically populated -->
+        </tbody>
+    </table>
+</div>
+
+<button id="abid-button">ABID</button>
+
+<!-- Results Section -->
+<div id="results-section">
+    <h2>Results</h2>
+    <p><strong>Ruled Out Antigens:</strong> <span id="ruled-out-antigens"></span></p>
+    <p><strong>Possible Antibodies:</strong> <span id="possible-antibodies"></span></p>
+</div>
+
+<script src="/static/js/antibody_id.js"></script>
+{% endblock %}

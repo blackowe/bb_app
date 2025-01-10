@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Cell Finder</h1>
+<p>Enter antigen reactions and click search to find matching cells.</p>
+
+<!-- Input Antigen Chart -->
+<div class="table-container">
+    <form id="cell-finder-form">
+        <table id="antigen-input-table" class="antigen-table">
+            <thead>
+                <tr>
+                    {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+                    <th>{{ antigen }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+                    <td><input type="text" name="{{ antigen }}" maxlength="1" placeholder="0 or +"></td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+        <button type="submit">Search</button>
+    </form>
+</div>
+
+<!-- Results Table -->
+<div id="results">
+  <h2>Results</h2>
+  <table id="results-table" class="antigen-table">
+      <thead>
+          <tr>
+              <th>Lot Number</th>
+              <th>Expiration Date</th>
+              <th>Cell Number</th>
+              {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+              <th>{{ antigen }}</th>
+              {% endfor %}
+          </tr>
+      </thead>
+      <tbody id="results-body">
+          <!-- Dynamic results go here -->
+      </tbody>
+  </table>
+</div>
+
+<script src="/static/js/cell_finder.js"></script>
+{% endblock %}
