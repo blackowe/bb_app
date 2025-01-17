@@ -1,50 +1,120 @@
 from flask import request, jsonify, render_template
-from models import Antigram, Cell, Reaction
-from sqlalchemy.orm import sessionmaker
-from connect_connector import connect_with_connector
+from models import Cell, PatientReactionProfile, Antigram
 
-def register_antibody_id_routes(app, Session):
-    @app.route("/antibody_id", methods=["GET", "POST"])
-    def antibody_id():
-        session = Session()
+def register_antibody_id_routes(app, db_session):
+
+    
+    @app.route('/antibody_id', methods=['GET'])
+    def antibody_id_page():
+        return render_template('antibody_id.html')
+
+    @app.route('/api/antigrams', methods=['GET'])
+    def get_antigrams():
+        # Get the search query from the request
+        search_query = request.args.get('search', '').strip()
+
+        # Ensure a valid search query
+        if not search_query:
+            return jsonify({"error": "Search query cannot be empty"}), 400
+
         try:
-            if request.method == "GET":
-                # Fetch all unique lot numbers
-                lot_numbers = [antigram.lot_number for antigram in session.query(Antigram).all()]
-                return render_template("antibody_id.html", lot_numbers=lot_numbers)
+            # Use ilike for case-insensitive partial matching
+            antigrams = db_session.query(Antigram).filter(
+                Antigram.lot_number.ilike(f"%{search_query}%")
+            ).all()
 
-            if request.method == "POST":
-                # Get the selected antigram and patient reactions
-                data = request.json
-                lot_number = data.get("lot_number")
-                patient_reactions = data.get("patient_reactions")  # {cell_number: reaction}
-
-                antigram = session.query(Antigram).filter_by(lot_number=lot_number).first()
-                if not antigram:
-                    return jsonify({"error": "Antigram not found"}), 404
-
-                cells = session.query(Cell).filter_by(antigram_id=antigram.id).all()
-                ruled_out_antigens = set()
-
-                for cell in cells:
-                    cell_reactions = session.query(Reaction).filter_by(cell_id=cell.id).all()
-                    patient_reaction = patient_reactions.get(str(cell.cell_number))
-
-                    if patient_reaction == "0":  # Only negative patient reactions
-                        for reaction in cell_reactions:
-                            if reaction.reaction_value == "+":  # Rule out antigens with "+"
-                                ruled_out_antigens.add(reaction.antigen)
-
-                all_antigens = {reaction.antigen for reaction in session.query(Reaction).all()}
-                possible_antibodies = all_antigens - ruled_out_antigens
-
-                return jsonify({
-                    "ruled_out_antigens": list(ruled_out_antigens),
-                    "possible_antibodies": list(possible_antibodies)
-                }), 200
-
+            # Serialize the results to JSON
+            return jsonify([{
+                "id": antigram.id,
+                "lot_number": antigram.lot_number,
+                "name": antigram.name,
+                "expiration_date": antigram.expiration_date.strftime("%Y-%m-%d"),
+            } for antigram in antigrams]), 200
         except Exception as e:
-            print("Error in Antibody ID:", str(e))
             return jsonify({"error": str(e)}), 500
-        finally:
-            session.close()
+
+    
+
+    @app.route('/api/antigram/<int:antigram_id>/cells', methods=['GET'])
+    def get_cells_for_antigram(antigram_id):
+        cells = db_session.query(Cell).filter_by(antigram_id=antigram_id).all()
+        return jsonify([cell.to_dict() for cell in cells])
+
+    @app.route('/api/patient-reaction', methods=['POST'])
+    def save_patient_reactions():
+        try:
+            data = request.json
+            antigram_id = data.get('antigram_id')
+            reactions = data.get('reactions', [])
+
+            for reaction in reactions:
+                cell_number = reaction['cell_number']
+                patient_rxn = reaction['patient_rxn']
+
+                # Find the cell by antigram ID and cell number
+                cell = db_session.query(Cell).filter_by(
+                    antigram_id=antigram_id, 
+                    cell_number=cell_number
+                ).first()
+
+                if cell:
+                    # Check if a reaction already exists for this cell
+                    existing_reaction = db_session.query(PatientReactionProfile).filter_by(cell_id=cell.id).first()
+
+                    if existing_reaction:
+                        # Update the existing reaction
+                        existing_reaction.patient_rxn = patient_rxn
+                    else:
+                        # Create a new reaction
+                        new_reaction = PatientReactionProfile(
+                            cell_id=cell.id,
+                            patient_rxn=patient_rxn,
+                        )
+                        db_session.add(new_reaction)
+
+            db_session.commit()
+            return jsonify({"message": "Reactions saved successfully!"}), 200
+        except Exception as e:
+            db_session.rollback()
+            return jsonify({"error": str(e)}), 500
+        
+
+    @app.route('/api/patient-reactions', methods=['GET'])
+    def get_all_patient_reactions():
+        try:
+            # Query all patient reactions
+            reactions = db_session.query(PatientReactionProfile).all()
+            if not reactions:
+                return jsonify({"message": "No patient reactions found"}), 404
+
+            # Format the data for response
+            response_data = []
+            for reaction in reactions:
+                cell = db_session.query(Cell).filter_by(id=reaction.cell_id).first()
+                antigram = db_session.query(Antigram).filter_by(id=cell.antigram_id).first()
+                response_data.append({
+                    "lot_number": antigram.lot_number if antigram else "Unknown",
+                    "cell_number": cell.cell_number if cell else "Unknown",
+                    "patient_reaction": reaction.patient_rxn
+                })
+
+            return jsonify({"patient_reactions": response_data}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
+    @app.route('/api/clear-patient-reactions', methods=['DELETE'])
+    def clear_patient_reactions():
+        try:
+            # Delete all records from the PatientReactionProfile table
+            db_session.query(PatientReactionProfile).delete()
+            db_session.commit()
+            return jsonify({"message": "All patient reactions cleared successfully!"}), 200
+        except Exception as e:
+            db_session.rollback()
+            return jsonify({"error": str(e)}), 500
+        
+
+        
+
+
+

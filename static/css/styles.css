@@ -95,6 +95,64 @@ th {
   margin-left: 0; /* Align tables to the left */
 }
 
+/* Flexbox Layout for Top Section */
+.top-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px; /* Spacing between lot search and summary */
+}
+
+/* Lot Search Section */
+.lot-search {
+  flex: 2; /* Occupy more space */
+}
+
+/* Patient Reaction Summary Section */
+.patient-reaction-summary {
+  flex: 1; /* Occupy less space */
+  border: 1px solid #ccc;
+  padding: 10px;
+  max-width: 350px; /* Optional: Limit the width */
+  max-height: 300px; /* Fixed height */
+  overflow-y: auto; /* Enable vertical scrolling */
+  background-color: #f9f9f9; /* Optional: Light background */
+}
+
+.patient-reaction-summary table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.patient-reaction-summary th, .patient-reaction-summary td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.patient-reaction-summary th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+
+
+/* Flexbox Layout for Form Row */
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Spacer between the cell number and input box */
+  margin-bottom: 10px; /* Space between rows */
+}
+
+/* Input Box Styling */
+.form-row input {
+  width: 100px; /* Smaller input box width */
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  text-align: center;
+}
 
 /* -------------- BUTTONS ---------------- */
 

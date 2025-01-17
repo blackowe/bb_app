@@ -1,46 +1,48 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Antibody Identification</h1>
-<p>Select an antigram and enter patient reactions to identify possible antibodies.</p>
+<div class="container">
+    <!-- Left Section -->
+    <div class="left-section">
+        <!-- Search Bar -->
+        <div>
+            <input type="text" id="search-bar" placeholder="Search Antigrams by Lot Number">
+            <button id="search-btn">Search</button>
+        </div>
 
-<!-- Dropdown to Select Antigram -->
-<div>
-    <select id="lot-number-dropdown">
-        <option value="">Select Antigram Lot Number</option>
-        {% for lot_number in lot_numbers %}
-        <option value="{{ lot_number }}">{{ lot_number }}</option>
-        {% endfor %}
-    </select>
-    <button id="load-antigram-button">Load Antigram</button>
+        <!-- Antigram Table -->
+        <table id="antigram-table">
+            <thead>
+                <tr>
+                    <th>Lot Number</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <!-- Reaction Form Container -->
+        <div id="reaction-form-container"></div>
+
+        <!-- Save Reactions Button -->
+        <button id="save-all-reactions-btn" style="display: none;">Save All Reactions</button>
+    </div>
+
+    <!-- Right Section: Patient Reaction Summary -->
+    <div class="right-section">
+        <h3>Patient Reaction Summary</h3>
+        <table id="summary-table">
+            <thead>
+                <tr>
+                    <th>Lot Number</th>
+                    <th>Cell Number</th>
+                    <th>Reaction</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 </div>
 
-<!-- Antigen Input Table -->
-<div id="antigen-input-section">
-    <table id="antigen-input-table">
-        <thead>
-            <tr>
-                <th>Cell Number</th>
-                {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
-                <th>{{ antigen }}</th>
-                {% endfor %}
-                <th>Patient Reaction</th>
-            </tr>
-        </thead>
-        <tbody id="antigen-input-body">
-            <!-- Rows will be dynamically populated -->
-        </tbody>
-    </table>
-</div>
-
-<button id="abid-button">ABID</button>
-
-<!-- Results Section -->
-<div id="results-section">
-    <h2>Results</h2>
-    <p><strong>Ruled Out Antigens:</strong> <span id="ruled-out-antigens"></span></p>
-    <p><strong>Possible Antibodies:</strong> <span id="possible-antibodies"></span></p>
-</div>
-
-<script src="/static/js/antibody_id.js"></script>
+<script src="/static/js/antibody_id.js" defer></script>
 {% endblock %}

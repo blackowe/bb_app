@@ -1,96 +1,161 @@
-// Event listener for the "Load Antigram" button
-document.getElementById("load-antigram-button").addEventListener("click", async function () {
-  const lotNumber = document.getElementById("lot-number-dropdown").value;
+document.addEventListener("DOMContentLoaded", () => {
+    const searchBar = document.getElementById("search-bar");
+    const searchBtn = document.getElementById("search-btn");
+    const antigramTable = document.getElementById("antigram-table").querySelector("tbody");
+    const reactionFormContainer = document.getElementById("reaction-form-container");
+    const saveAllReactionsBtn = document.getElementById("save-all-reactions-btn");
+    const summaryTable = document.getElementById("summary-table").querySelector("tbody");
 
-  if (!lotNumber) {
-      console.log("No lot number selected.");
-      alert("Please select a lot number.");
-      return;
-  }
+    let selectedAntigramId = null;
+    let selectedLotNumber = null; // Store the actual selected lot number
 
-  try {
-      console.log("Fetching antigram for lot number:", lotNumber);
+    // Search for antigrams
+    searchBtn.addEventListener("click", async () => {
+        const searchQuery = searchBar.value.trim();
+        if (!searchQuery) {
+            alert("Please enter a lot number to search.");
+            return;
+        }
+    
+        // Fetch filtered antigrams
+        const response = await fetch(`/api/antigrams?search=${encodeURIComponent(searchQuery)}`);
+        if (!response.ok) {
+            alert("Failed to fetch antigrams.");
+            return;
+        }
+    
+        const antigrams = await response.json();
+    
+        // Clear the table before populating new results
+        antigramTable.innerHTML = "";
+    
+        if (antigrams.length === 0) {
+            antigramTable.innerHTML = `
+                <tr>
+                    <td colspan="2">No matching antigrams found.</td>
+                </tr>
+            `;
+            return;
+        }
+    
+        // Populate the antigram table with filtered results
+        antigrams.forEach(antigram => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${antigram.lot_number}</td>
+                <td>
+                    <button 
+                        class="select-btn" 
+                        data-antigram-id="${antigram.id}" 
+                        data-lot-number="${antigram.lot_number}">
+                        Select
+                    </button>
+                </td>
+            `;
+            antigramTable.appendChild(row);
+        });
+    });
 
-      // Fetch antigram data from the backend
-      const response = await fetch(`/api/antigrams/${lotNumber}`);
+    // Handle Select button click
+    antigramTable.addEventListener("click", async (e) => {
+        if (e.target.classList.contains("select-btn")) {
+            selectedAntigramId = e.target.dataset.antigramId;
+            selectedLotNumber = e.target.dataset.lotNumber; // Capture the correct lot number
 
-      if (!response.ok) {
-          console.error("Failed to fetch antigram:", response.statusText);
-          alert("Failed to load antigram. Please try again.");
-          return;
-      }
+            const response = await fetch(`/api/antigrams/${selectedAntigramId}`);
+            if (!response.ok) {
+                alert("Failed to fetch antigram details.");
+                return;
+            }
 
-      const data = await response.json();
-      console.log("Fetched antigram data:", data);
+            const antigram = await response.json();
 
-      if (!data.cells || data.cells.length === 0) {
-          console.error("No cells found for the selected antigram.");
-          alert("No cells found for the selected antigram.");
-          return;
-      }
+            // Clear and populate the reaction form container
+            reactionFormContainer.innerHTML = `
+                <h3>Enter Patient Reactions for Lot ${selectedLotNumber}</h3>
+            `;
 
-      // Populate the table with antigram data
-      const tbody = document.getElementById("antigen-input-body");
-      tbody.innerHTML = ""; // Clear previous data
+            antigram.cells.forEach(cell => {
+                const formRow = document.createElement("div");
+                formRow.classList.add("form-row");
+                formRow.innerHTML = `
+                    <span>Cell Number: ${cell.cell_number}</span>
+                    <input 
+                        type="text" 
+                        id="patient-rxn-${cell.cell_number}" 
+                        data-cell-number="${cell.cell_number}" 
+                        placeholder="+ or 0 (optional)">
+                `;
+                reactionFormContainer.appendChild(formRow);
+            });
 
-      data.cells.forEach(cell => {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-              <td>${cell.cell_number}</td>
-              ${Object.keys(cell.reactions).map(antigen => `<td>${cell.reactions[antigen] || "-"}</td>`).join("")}
-              <td><input type="text" name="patient_reaction_${cell.cell_number}" placeholder="0 or +"></td>
-          `;
-          tbody.appendChild(row);
-      });
+            // Show the Save All Reactions button
+            saveAllReactionsBtn.style.display = "block";
+        }
+    });
 
-  } catch (error) {
-      console.error("Error fetching antigram:", error);
-      alert("An error occurred while loading the antigram. Please check the console for more details.");
-  }
+    // Save all entered reactions
+    saveAllReactionsBtn.addEventListener("click", async () => {
+        if (!selectedAntigramId || !selectedLotNumber) {
+            alert("No antigram selected.");
+            return;
+        }
+    
+        const inputs = reactionFormContainer.querySelectorAll("input[data-cell-number]");
+        const reactions = Array.from(inputs)
+            .filter(input => input.value.trim() !== "")
+            .map(input => ({
+                cell_number: input.dataset.cellNumber,
+                patient_rxn: input.value.trim(),
+            }));
+    
+        if (reactions.length === 0) {
+            alert("No reactions entered to save.");
+            return;
+        }
+    
+        const response = await fetch("/api/patient-reaction", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                antigram_id: selectedAntigramId,
+                reactions: reactions,
+            }),
+        });
+    
+        if (response.ok) {
+            alert("All reactions saved successfully!");
+    
+            // Update the summary table
+            reactions.forEach(reaction => {
+                const existingRow = summaryTable.querySelector(
+                    `tr[data-lot-number="${selectedLotNumber}"][data-cell-number="${reaction.cell_number}"]`
+                );
+    
+                if (existingRow) {
+                    // Update the existing row
+                    existingRow.innerHTML = `
+                        <td>${selectedLotNumber}</td>
+                        <td>${reaction.cell_number}</td>
+                        <td>${reaction.patient_rxn}</td>
+                    `;
+                } else {
+                    // Add a new row
+                    const row = document.createElement("tr");
+                    row.setAttribute("data-lot-number", selectedLotNumber);
+                    row.setAttribute("data-cell-number", reaction.cell_number);
+                    row.innerHTML = `
+                        <td>${selectedLotNumber}</td>
+                        <td>${reaction.cell_number}</td>
+                        <td>${reaction.patient_rxn}</td>
+                    `;
+                    summaryTable.appendChild(row);
+                }
+            });
+        } else {
+            alert("Failed to save reactions.");
+        }
+    });
+
+
 });
-
-// Event listener for the "ABID" button
-document.getElementById("abid-button").addEventListener("click", async function () {
-  const lotNumber = document.getElementById("lot-number-dropdown").value;
-  const patientReactions = {};
-
-  if (!lotNumber) {
-      alert("Please select a lot number before performing ABID.");
-      return;
-  }
-
-  // Collect patient reactions
-  document.querySelectorAll("[name^='patient_reaction_']").forEach(input => {
-      const cellNumber = input.name.split("_")[2];
-      patientReactions[cellNumber] = input.value.trim(); // Ensure no extra spaces
-  });
-
-  console.log("Patient Reactions Submitted:", patientReactions);
-
-  try {
-      // Send patient reactions and lot number to the backend
-      const response = await fetch("/antibody_id", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lot_number: lotNumber, patient_reactions: patientReactions })
-      });
-
-      if (!response.ok) {
-          console.error("Failed to perform ABID:", response.statusText);
-          alert("Failed to perform ABID. Please try again.");
-          return;
-      }
-
-      const results = await response.json();
-      console.log("ABID Results:", results);
-
-      // Display results
-      document.getElementById("ruled-out-antigens").innerText = results.ruled_out_antigens.join(", ");
-      document.getElementById("possible-antibodies").innerText = results.possible_antibodies.join(", ");
-
-  } catch (error) {
-      console.error("Error during ABID:", error);
-      alert("An error occurred while performing ABID. Please check the console for more details.");
-  }
-});
-
