@@ -82,6 +82,13 @@ th {
   border-radius: 3px;
 }
 
+.antigen {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 5px 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
 
 /* Table Container Alignment */
 .table-container {
@@ -152,6 +159,32 @@ th {
   border: 1px solid #ccc;
   border-radius: 3px;
   text-align: center;
+}
+
+
+.abid-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+}
+
+.abid-table th, .abid-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.abid-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.abid-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.abid-table tr:hover {
+  background-color: #f1f1f1;
 }
 
 /* -------------- BUTTONS ---------------- */
