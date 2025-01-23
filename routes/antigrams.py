@@ -3,7 +3,6 @@ from models import Antigram, Cell, Reaction
 from datetime import datetime
 
 def register_antigram_routes(app, db_session):
-    
     # Create Antigram
     @app.route("/api/antigrams", methods=["POST"])
     def add_antigram():
@@ -34,13 +33,19 @@ def register_antigram_routes(app, db_session):
             db_session.rollback()
             return jsonify({"error": str(e)}), 500
 
-    # Get All Antigrams
+    # Get All Antigrams or Filter by Lot Number
     @app.route("/api/antigrams", methods=["GET"])
     def get_all_antigrams():
         try:
-            antigrams = db_session.query(Antigram).all()
-            result = []
+            search_query = request.args.get('search', '').strip()
+            if search_query:
+                antigrams = db_session.query(Antigram).filter(
+                    Antigram.lot_number.ilike(f"%{search_query}%")
+                ).all()
+            else:
+                antigrams = db_session.query(Antigram).all()
 
+            result = []
             for antigram in antigrams:
                 cells = db_session.query(Cell).filter_by(antigram_id=antigram.id).all()
                 cell_data = []
@@ -86,32 +91,5 @@ def register_antigram_routes(app, db_session):
                 "expiration_date": antigram.expiration_date.strftime("%Y-%m-%d"),
                 "cells": cell_data
             }), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    # Get Antigram by Lot Number
-    @app.route("/api/antigrams/lot/<lot_number>", methods=["GET"])
-    def get_antigram_by_lot(lot_number):
-        try:
-            antigram = db_session.query(Antigram).filter_by(lot_number=lot_number).first()
-            if not antigram:
-                return jsonify({"error": "Antigram not found"}), 404
-
-            cells = db_session.query(Cell).filter_by(antigram_id=antigram.id).all()
-            cell_data = []
-            for cell in cells:
-                reactions = db_session.query(Reaction).filter_by(cell_id=cell.id).all()
-                cell_data.append({
-                    "cell_number": cell.cell_number,
-                    "reactions": {reaction.antigen: reaction.reaction_value for reaction in reactions}
-                })
-
-            result = {
-                "id": antigram.id,
-                "name": antigram.name,
-                "lot_number": antigram.lot_number,
-                "cells": cell_data
-            }
-            return jsonify(result), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500

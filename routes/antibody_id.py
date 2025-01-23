@@ -1,44 +1,11 @@
 from flask import request, jsonify, render_template
-from models import Cell, PatientReactionProfile, Antigram, Reaction
+from models import Cell, PatientReactionProfile, Reaction
 
 def register_antibody_id_routes(app, db_session):
 
-    
     @app.route('/antibody_id', methods=['GET'])
     def antibody_id_page():
         return render_template('antibody_id.html')
-
-    @app.route('/api/antigrams', methods=['GET'])
-    def get_antigrams():
-        # Get the search query from the request
-        search_query = request.args.get('search', '').strip()
-
-        # Ensure a valid search query
-        if not search_query:
-            return jsonify({"error": "Search query cannot be empty"}), 400
-
-        try:
-            # Use ilike for case-insensitive partial matching
-            antigrams = db_session.query(Antigram).filter(
-                Antigram.lot_number.ilike(f"%{search_query}%")
-            ).all()
-
-            # Serialize the results to JSON
-            return jsonify([{
-                "id": antigram.id,
-                "lot_number": antigram.lot_number,
-                "name": antigram.name,
-                "expiration_date": antigram.expiration_date.strftime("%Y-%m-%d"),
-            } for antigram in antigrams]), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    
-
-    @app.route('/api/antigram/<int:antigram_id>/cells', methods=['GET'])
-    def get_cells_for_antigram(antigram_id):
-        cells = db_session.query(Cell).filter_by(antigram_id=antigram_id).all()
-        return jsonify([cell.to_dict() for cell in cells])
 
     @app.route('/api/patient-reaction', methods=['POST'])
     def save_patient_reactions():
@@ -68,8 +35,6 @@ def register_antibody_id_routes(app, db_session):
             db_session.rollback()
             return jsonify({"error": str(e)}), 500
 
-        
-
     @app.route('/api/patient-reactions', methods=['GET'])
     def get_all_patient_reactions():
         try:
@@ -92,7 +57,7 @@ def register_antibody_id_routes(app, db_session):
             return jsonify({"patient_reactions": response_data}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-        
+
     @app.route('/api/clear-patient-reactions', methods=['DELETE'])
     def clear_patient_reactions():
         try:
@@ -103,7 +68,6 @@ def register_antibody_id_routes(app, db_session):
         except Exception as e:
             db_session.rollback()
             return jsonify({"error": str(e)}), 500
-        
 
     @app.route('/api/patient-reactions/<int:antigram_id>/<int:cell_number>', methods=['DELETE'])
     def delete_patient_reaction(antigram_id, cell_number):
@@ -121,7 +85,7 @@ def register_antibody_id_routes(app, db_session):
         except Exception as e:
             db_session.rollback()
             return jsonify({"error": str(e)}), 500
-        
+
     @app.route('/api/abid', methods=['GET'])
     def antibody_identification():
         try:
@@ -179,7 +143,11 @@ def register_antibody_id_routes(app, db_session):
                     match_candidates.add(antigen)
 
             # Antigens not ruled out or matched
-            still_to_rule_out = antigen_list - ruled_out - match_candidates
+            still_to_rule_out = antigen_list - ruled_out
+
+            # If MATCH contains exactly one antigen, STRO should be empty
+            if len(match_candidates) == 1:
+                still_to_rule_out = set()
 
             print("Final Results - RO:", ruled_out, "STRO:", still_to_rule_out, "Match:", match_candidates)  # Debugging log
 
@@ -192,4 +160,3 @@ def register_antibody_id_routes(app, db_session):
         except Exception as e:
             print(f"Error: {e}")
             return jsonify({"error": str(e)}), 500
-

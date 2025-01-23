@@ -1,49 +1,57 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <!-- Left Section -->
-    <div class="left-section">
-        <!-- Search Bar -->
-        <div>
+<!-- Main Content Section -->
+<div class="main-content">
+    <!-- Left Panel -->
+    <div class="left-panel">
+        <!-- Lot Number Search -->
+        <div class="lot-search">
+            <h3>Search Antigrams</h3>
             <input type="text" id="search-bar" placeholder="Search Antigrams by Lot Number">
             <button id="search-btn">Search</button>
         </div>
 
         <!-- Antigram Table -->
-        <table id="antigram-table">
-            <thead>
-                <tr>
-                    <th>Lot Number</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="table-container">
+            <h3>Available Antigrams</h3>
+            <table id="antigram-table">
+                <thead>
+                    <tr>
+                        <th>Lot Number</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
-        <!-- Reaction Form Container -->
-        <div id="reaction-form-container"></div>
+        <!-- Reaction Form -->
+        <div id="reaction-form-container">
+            <!-- Dynamic reaction form goes here -->
+        </div>
 
         <!-- Save Reactions Button -->
         <button id="save-all-reactions-btn" style="display: none;">Save All Reactions</button>
     </div>
 
-    <!-- Right Section -->
-    <div class="right-section">
-        <h3>Patient Reaction Summary</h3>
-        <table id="summary-table">
-            <thead>
-                <tr>
-                    <th>Lot Number</th>
-                    <th>Cell Number</th>
-                    <th>Reaction</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+    <!-- Right Panel -->
+    <div class="right-panel">
+        <div class="patient-reaction-summary">
+            <h3>Patient Reaction Summary</h3>
+            <table id="summary-table">
+                <thead>
+                    <tr>
+                        <th>Lot Number</th>
+                        <th>Cell Number</th>
+                        <th>Reaction</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
-        <!-- ABID Results -->
         <div id="abid-container">
             <h3>ABID Results</h3>
             <div id="abid-results"></div>

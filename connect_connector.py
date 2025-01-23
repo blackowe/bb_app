@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 def connect_with_connector():
     # Use SQLite for local development
     if os.getenv("USE_LOCAL_DB", "false").lower() == "true":
-        engine = create_engine("sqlite:///local.db", echo=True)
+        engine = create_engine("sqlite:///local.db", echo=False)
         print("Using local SQLite database")
         return engine
 
@@ -37,6 +37,8 @@ def connect_with_connector():
         max_overflow=2,
         pool_timeout=30,
         pool_recycle=1800,
+        echo=False
+
     )
     print("Using Google Cloud SQL database")
     return engine
