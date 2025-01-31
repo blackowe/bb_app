@@ -4,6 +4,7 @@ from connect_connector import connect_with_connector
 from routes.antigrams import register_antigram_routes
 from routes.antibody_id import register_antibody_id_routes
 from routes.cell_finder import register_cell_finder_routes
+from routes.add_antigram import register_add_antigram_routes
 
 from models import Base
 from dotenv import load_dotenv
@@ -28,6 +29,7 @@ if "sqlite" in str(engine.url):
 register_antigram_routes(app, db_session)
 register_antibody_id_routes(app, db_session)
 register_cell_finder_routes(app, db_session)
+register_add_antigram_routes(app, db_session)
 
 
 @app.teardown_appcontext

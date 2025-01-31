@@ -1,15 +1,22 @@
 /* Flexbox Layout for Main Content */
 .main-content {
   display: flex;
-  gap: 20px;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 40px;
   margin-top: 20px;
 }
 
-/* Ensure flexbox layout doesn't stretch elements unnecessarily */
-.left-panel, .right-panel {
-  flex-grow: 0; /* Prevent panels from stretching unnecessarily */
+/* Ensure the Left Panel Stays on the Left */
+.left-panel {
+  width: 35%;
+  max-width: 400px;
 }
 
+/* Ensure the Right Panel (Patient Reactions) Stays on the Right */
+.right-panel {
+  width: 60%;
+}
 /* Auto-size table cells to fit content */
 table {
   table-layout: auto; /* Allow columns to auto-size */
@@ -87,4 +94,97 @@ button:hover {
   border: 1px solid #ccc;
   border-radius: 3px;
   text-align: center;
+}
+
+/* Add Antigram Page*/
+/* Fix the Antigram Selection Box Positioning */
+.antigram-selection-box {
+  background-color: #f9f9f9;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  margin-left: 0; /* Remove centering */
+}
+
+/* Improve Table Styling for Better Alignment */
+.table-container {
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+#antigram-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#antigram-table th,
+#antigram-table td {
+  padding: 10px;
+  text-align: center;
+  border: 1px solid #ddd;
+  min-width: 50px; 
+}
+
+/* Ensure Antigen Headers Shift Right */
+#antigram-header tr {
+  background-color: #007bff;
+  color: rgb(10, 0, 0);
+}
+
+#antigram-header th {
+  background-color: #f8f9fa !important; /* ✅ Light gray background for contrast */
+  color: black !important;  /* ✅ Force black text */
+  font-weight: bold;
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+/* Fix Input Fields */
+.reaction-input {
+  min-width: 40px; 
+  max-width: 50px; 
+  height: 30px; 
+  text-align: center;
+  border: 2px solid #000 !important; 
+  border-radius: 5px;
+  padding: 2px;
+  font-size: 16px;
+  font-weight: bold;
+  color: black !important; 
+  background-color: white !important; 
+  caret-color: black !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+
+.reaction-input::placeholder {
+  color: #888 !important; 
+  font-weight: normal;
+  text-align: center; 
+  opacity: 1 !important; 
+}
+
+
+/* Improve Button Styling */
+#confirm-template-btn {
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+#confirm-template-btn:hover {
+  background-color: #0056b3;
 }

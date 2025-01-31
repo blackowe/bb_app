@@ -1,5 +1,5 @@
 from flask import request, jsonify, render_template
-from models import Cell, PatientReactionProfile, Reaction
+from models import Cell, PatientReactionProfile, Reaction, Antigram
 
 def register_antibody_id_routes(app, db_session):
 
@@ -54,7 +54,7 @@ def register_antibody_id_routes(app, db_session):
                     "patient_reaction": reaction.patient_rxn
                 })
 
-            return jsonify({"patient_reactions": response_data}), 200
+            return jsonify({".patient_reactions": response_data}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

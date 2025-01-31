@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="main-container">
+    <!-- Left Panel -->
+    <div class="left-panel">
+        <div class="antigram-selection-box">
+            <h3>Select Antigram Template</h3>
+            <label for="templateSelect">Choose Antigram Template:</label>
+            <select id="templateSelect"></select>
+
+            <label for="lotNumber">Lot Number:</label>
+            <input type="text" id="lotNumber" required />
+
+            <label for="expirationDate">Expiration Date:</label>
+            <input type="date" id="expirationDate" required />
+
+            <button id="confirm-template-btn">Confirm Selection</button>
+        </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+        <h3>Fill in Patient Reactions</h3>
+        <div class="table-container">
+            <table id="antigram-table">
+                <thead id="antigram-header"></thead>
+                <tbody id="antigram-body"></tbody>
+            </table>
+        </div>
+
+        <button id="save-antigram-btn" style="display: none;">Save Antigram</button>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/add_antigram.js') }}" defer></script>
+{% endblock %}

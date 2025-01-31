@@ -3,12 +3,31 @@ from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
+
+class AntigramTemplate(Base):
+    __tablename__ = "antigram_templates"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    antigen_order = Column(String(255), nullable=False)  # Comma-separated antigen groups
+    cell_count = Column(Integer, nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "antigen_order": self.antigen_order.split(","),  # Convert back to list
+            "cell_count": self.cell_count,
+        }
+
 class Antigram(Base):
     __tablename__ = 'antigrams'
     id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)
+    template_id = Column(Integer, ForeignKey("antigram_templates.id"), nullable=False)
     lot_number = Column(String(50), nullable=False, unique=True)
     expiration_date = Column(Date, nullable=False)
+    
+    template = relationship("AntigramTemplate")  # Relationship with Template
     cells = relationship("Cell", back_populates="antigram", cascade="all, delete-orphan")
 
     def to_dict(self):

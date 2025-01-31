@@ -1,10 +1,10 @@
 from flask import request, jsonify, render_template
-from models import Antigram, Cell, Reaction
+from models import Antigram, Cell, Reaction, AntigramTemplate
 from sqlalchemy import and_, func
 
 def register_cell_finder_routes(app, db_session):
 
-    @ app.route("/cell_finder", methods=["POST", "GET"])
+    @app.route("/cell_finder", methods=["POST", "GET"])
     def cell_finder():
         if request.method == "GET":
             return render_template("cell_finder.html")
@@ -39,11 +39,18 @@ def register_cell_finder_routes(app, db_session):
                 results = []
                 for cell in matching_cells:
                     antigram = db_session.query(Antigram).filter_by(id=cell.antigram_id).first()
+                    if not antigram:
+                        continue
+
+                    # Fetch the template name
+                    template = db_session.query(AntigramTemplate).filter_by(id=antigram.template_id).first()
+                    template_name = template.name if template else "Unknown Template"
+
                     reactions = db_session.query(Reaction).filter_by(cell_id=cell.id).all()
                     results.append({
                         "antigram": {
                             "id": antigram.id,
-                            "name": antigram.name,
+                            "name": template_name, 
                             "lot_number": antigram.lot_number,
                             "expiration_date": antigram.expiration_date.strftime("%Y-%m-%d"),
                         },
