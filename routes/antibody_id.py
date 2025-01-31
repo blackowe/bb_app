@@ -117,8 +117,6 @@ def register_antibody_id_routes(app, db_session):
                         "patient_rxn": reaction.patient_rxn,
                     })
 
-            print("Antigen Presence Map:", antigen_presence_map)  # Debugging log
-
             # Process each antigen
             for antigen, details in antigen_presence_map.items():
                 is_match = True  # Assume it is a match until proven otherwise

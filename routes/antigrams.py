@@ -1,6 +1,7 @@
 from flask import request, jsonify
 from models import Antigram, Cell, Reaction, AntigramTemplate
 from datetime import datetime
+from sqlalchemy import cast, String
 
 def register_antigram_routes(app, db_session):
     # Create Antigram
@@ -50,16 +51,23 @@ def register_antigram_routes(app, db_session):
     # Get All Antigrams or Filter by Lot Number
     @app.route("/api/antigrams", methods=["GET"])
     def get_all_antigrams():
+        """Fetch all antigrams or filter by lot number."""
         try:
             search_query = request.args.get('search', '').strip()
+
+            # Debugging: Print raw search query to Flask logs
+            print(f"Searching for lot number: '{search_query}'")
 
             # Join Antigram with AntigramTemplate to get template details
             query = db_session.query(Antigram, AntigramTemplate.name).join(AntigramTemplate, Antigram.template_id == AntigramTemplate.id)
 
             if search_query:
-                query = query.filter(Antigram.lot_number.ilike(f"%{search_query}%"))
+                query = query.filter(cast(Antigram.lot_number, String).ilike(f"%{search_query}%"))  # ✅ Ensures lot_number is treated as a string
 
             antigrams = query.all()
+
+            # Debugging: Print the fetched results to check query correctness
+            print(f"Fetched {len(antigrams)} antigrams matching lot number '{search_query}'")
 
             result = []
             for antigram, template_name in antigrams:
@@ -81,8 +89,10 @@ def register_antigram_routes(app, db_session):
                 })
 
             return jsonify(result), 200
+
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
 
     # Get Antigram by ID
     @app.route("/api/antigrams/<int:id>", methods=["GET"])

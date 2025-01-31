@@ -2,26 +2,30 @@
 
 {% block content %}
 <div class="main-container">
-    <!-- Left Panel -->
+    <!-- Left Panel: Antigram Template Selection -->
     <div class="left-panel">
         <div class="antigram-selection-box">
             <h3>Select Antigram Template</h3>
             <label for="templateSelect">Choose Antigram Template:</label>
             <select id="templateSelect"></select>
 
+            <button id="confirm-template-btn">Confirm Selection</button>
+        </div>
+
+        <!-- Lot Number & Expiration Date Entry (Hidden Until Template is Selected) -->
+        <div class="lot-expiration-box" style="display: none;">
+            <h3>Antigram Details</h3>
             <label for="lotNumber">Lot Number:</label>
             <input type="text" id="lotNumber" required />
 
             <label for="expirationDate">Expiration Date:</label>
             <input type="date" id="expirationDate" required />
-
-            <button id="confirm-template-btn">Confirm Selection</button>
         </div>
     </div>
 
-    <!-- Right Panel -->
+    <!-- Right Panel: Antigram Cell Reactions -->
     <div class="right-panel">
-        <h3>Fill in Patient Reactions</h3>
+        <h3>Antigram Cell Reactions</h3>
         <div class="table-container">
             <table id="antigram-table">
                 <thead id="antigram-header"></thead>
@@ -29,7 +33,7 @@
             </table>
         </div>
 
-        <button id="save-antigram-btn" style="display: none;">Save Antigram</button>
+        <button id="save-antigram-btn" style="display: none;" disabled>Save Antigram</button>
     </div>
 </div>
 

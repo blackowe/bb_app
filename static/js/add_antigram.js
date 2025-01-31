@@ -31,8 +31,10 @@ function loadTemplateDetails() {
   fetch(`/api/antigram-templates/${templateId}`)
       .then(response => response.json())
       .then(template => {
-          document.getElementById("lotNumber").value = template.lot_number || "";
-          document.getElementById("expirationDate").value = template.expiration_date || "";
+          // ✅ Show lot number & expiration date entry section
+          document.querySelector(".lot-expiration-box").style.display = "block";
+
+          // ✅ Generate Antigram Table
           generateAntigramTable(template);
       })
       .catch(error => {
@@ -41,16 +43,38 @@ function loadTemplateDetails() {
       });
 }
 
+
+function checkAllFieldsFilled() {
+  let allFilled = true;
+
+  document.querySelectorAll(".reaction-input").forEach(input => {
+      if (!input.value.trim() || (input.value !== "+" && input.value !== "0")) {
+          allFilled = false;
+      }
+  });
+
+  document.getElementById("save-antigram-btn").disabled = !allFilled;
+}
+
+function validateReactionInput(input) {
+  const validValues = ["+", "0"];
+  if (!validValues.includes(input.value)) {
+      input.value = ""; // Clear invalid input
+      alert("Only + or 0 are allowed.");
+  }
+  checkAllFieldsFilled(); // Ensure Save button is enabled only when valid
+}
+
 function generateAntigramTable(template) {
   let table = document.getElementById("antigram-table");
   let header = document.getElementById("antigram-header");
   let body = document.getElementById("antigram-body");
 
-  // ✅ Clear previous data
+  // Clear previous data
   header.innerHTML = "";
   body.innerHTML = "";
 
-  // ✅ Create header row with antigen names
+  //  Create header row with antigen names
   let headerRow = "<tr><th>Cell #</th>";
   template.antigen_order.forEach(antigen => {
       headerRow += `<th>${antigen}</th>`;
@@ -58,13 +82,13 @@ function generateAntigramTable(template) {
   headerRow += "</tr>";
   header.innerHTML = headerRow;
 
-  // ✅ Populate body with input fields
+  // Populate body with input fields
   let bodyHtml = "";
   for (let i = 1; i <= template.cell_count; i++) {
       bodyHtml += `<tr><td>${i}</td>`; // Cell number column
 
       template.antigen_order.forEach(antigen => {
-          bodyHtml += `
+          bodyHtml += `  
               <td>
                   <input 
                       type="text" 
@@ -73,6 +97,7 @@ function generateAntigramTable(template) {
                       data-antigen="${antigen}" 
                       maxlength="1" 
                       placeholder="+" 
+                      oninput="validateReactionInput(this)"
                   />
               </td>`;
       });
@@ -81,10 +106,7 @@ function generateAntigramTable(template) {
   }
   body.innerHTML = bodyHtml;
 
-  // ✅ Debugging: Log the generated HTML
-  console.log("Generated Table Body:", body.innerHTML);
-
-  // ✅ Ensure the "Save Antigram" button is visible
+  // Ensure the "Save Antigram" button is visible
   document.getElementById("save-antigram-btn").style.display = "block";
 }
 
@@ -101,27 +123,25 @@ function saveAntigram() {
   }
 
   let cells = [];
-  let allFieldsFilled = true; // ✅ Flag to check if all reaction inputs are filled
+  let allFieldsFilled = true;
 
   document.querySelectorAll(".reaction-input").forEach(input => {
       let cellNumber = input.getAttribute("data-cell");
       let antigen = input.getAttribute("data-antigen");
       let reaction = input.value.trim();
 
+      if (!reaction) {
+          allFieldsFilled = false;
+      }
+
       if (!cells[cellNumber - 1]) {
           cells[cellNumber - 1] = { cellNumber: parseInt(cellNumber), reactions: {} };
       }
 
-      // ✅ Fill in missing reactions with "0" instead of skipping them
-      cells[cellNumber - 1].reactions[antigen] = reaction || "0";
-
-      // ✅ If any field is empty, set the flag to false
-      if (reaction === "") {
-          allFieldsFilled = false;
-      }
+      cells[cellNumber - 1].reactions[antigen] = reaction;
   });
 
-  // ✅ Ensure the reaction matrix is correctly filled
+  // ✅ Ensure all fields are filled before saving
   if (!allFieldsFilled) {
       alert("Please complete all reaction inputs before saving.");
       return;
@@ -131,7 +151,7 @@ function saveAntigram() {
       templateId: templateId,
       lotNumber: lotNumber,
       expirationDate: expirationDate,
-      cells: cells.filter(Boolean) // ✅ Remove empty indices
+      cells: cells.filter(Boolean)
   };
 
   fetch("/api/antigrams", {

@@ -9,15 +9,17 @@
     <form id="cell-finder-form">
         <table id="antigen-input-table" class="antigen-table">
             <thead>
-                <tr>
-                    {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+                <tr id="antigen-header-row">
+                    <th>Antigen</th>
+                    {% for antigen in antigens %}
                     <th>{{ antigen }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+                <tr id="antigen-input-row">
+                    <td>Reaction</td>
+                    {% for antigen in antigens %}
                     <td><input type="text" name="{{ antigen }}" maxlength="1" placeholder="0 or +"></td>
                     {% endfor %}
                 </tr>
@@ -32,11 +34,11 @@
   <h2>Results</h2>
   <table id="results-table" class="antigen-table">
       <thead>
-          <tr>
+          <tr id="results-header-row">
               <th>Lot Number</th>
               <th>Expiration Date</th>
               <th>Cell Number</th>
-              {% for antigen in ["D", "C", "c", "E", "e", "K", "Fya", "Fyb", "Jka", "Jkb"] %}
+              {% for antigen in antigens %}
               <th>{{ antigen }}</th>
               {% endfor %}
           </tr>

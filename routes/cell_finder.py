@@ -1,19 +1,30 @@
 from flask import request, jsonify, render_template
 from models import Antigram, Cell, Reaction, AntigramTemplate
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, distinct
 
 def register_cell_finder_routes(app, db_session):
 
-    @app.route("/cell_finder", methods=["POST", "GET"])
+
+    from flask import request, jsonify, render_template
+from models import Antigram, Cell, Reaction, AntigramTemplate
+from sqlalchemy import distinct
+
+def register_cell_finder_routes(app, db_session):
+
+    @app.route("/cell_finder", methods=["GET", "POST"])
     def cell_finder():
-        if request.method == "GET":
-            return render_template("cell_finder.html")
+        try:
+            # ✅ Fetch all distinct antigens in both GET and POST requests
+            all_antigens = db_session.query(distinct(Reaction.antigen)).order_by(Reaction.antigen).all()
+            antigen_list = [antigen[0] for antigen in all_antigens]  # Extract as list
 
-        if request.method == "POST":
-            if request.content_type != "application/json":
-                return jsonify({"error": "Unsupported Media Type: Content-Type must be 'application/json'"}), 415
+            if request.method == "GET":
+                return render_template("cell_finder.html", antigens=antigen_list)
 
-            try:
+            elif request.method == "POST":
+                if request.content_type != "application/json":
+                    return jsonify({"error": "Unsupported Media Type: Content-Type must be 'application/json'"}), 415
+
                 antigen_profile = request.json.get("antigenProfile", {})
                 print("Received Antigen Profile:", antigen_profile)
 
@@ -47,22 +58,38 @@ def register_cell_finder_routes(app, db_session):
                     template_name = template.name if template else "Unknown Template"
 
                     reactions = db_session.query(Reaction).filter_by(cell_id=cell.id).all()
+                    
+                    # ✅ Ensure reactions are sorted in the same order as `antigen_list`
+                    reaction_dict = {reaction.antigen: reaction.reaction_value for reaction in reactions}
+                    ordered_reactions = {antigen: reaction_dict.get(antigen, "-") for antigen in antigen_list}
+
                     results.append({
                         "antigram": {
                             "id": antigram.id,
-                            "name": template_name, 
+                            "name": template_name,
                             "lot_number": antigram.lot_number,
                             "expiration_date": antigram.expiration_date.strftime("%Y-%m-%d"),
                         },
                         "cell": {
                             "cell_number": cell.cell_number,
-                            "reactions": {reaction.antigen: reaction.reaction_value for reaction in reactions}
+                            "reactions": ordered_reactions  # ✅ Now reactions match antigen order
                         }
                     })
 
-                print("Returning Results:", results)
                 return jsonify(results), 200
 
-            except Exception as e:
-                print("Error in Cell Finder Backend:", str(e))
-                return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            print("Error in Cell Finder Backend:", str(e))
+            return jsonify({"error": str(e)}), 500
+
+
+    @app.route("/api/antigens", methods=["GET"])
+    def get_all_antigens():
+        """Fetch all distinct antigens from the database."""
+        try:
+            distinct_antigens = db_session.query(Reaction.antigen).distinct().all()
+            antigen_list = [antigen[0] for antigen in distinct_antigens]
+
+            return jsonify({"antigens": antigen_list}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
