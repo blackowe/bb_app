@@ -11,17 +11,11 @@
             <thead>
                 <tr id="antigen-header-row">
                     <th>Antigen</th>
-                    {% for antigen in antigens %}
-                    <th>{{ antigen }}</th>
-                    {% endfor %}
                 </tr>
             </thead>
             <tbody>
                 <tr id="antigen-input-row">
                     <td>Reaction</td>
-                    {% for antigen in antigens %}
-                    <td><input type="text" name="{{ antigen }}" maxlength="1" placeholder="0 or +"></td>
-                    {% endfor %}
                 </tr>
             </tbody>
         </table>
@@ -38,9 +32,6 @@
               <th>Lot Number</th>
               <th>Expiration Date</th>
               <th>Cell Number</th>
-              {% for antigen in antigens %}
-              <th>{{ antigen }}</th>
-              {% endfor %}
           </tr>
       </thead>
       <tbody id="results-body">

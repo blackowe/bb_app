@@ -17,10 +17,7 @@
 .right-panel {
   width: 60%;
 }
-/* Auto-size table cells to fit content */
-table {
-  table-layout: auto; /* Allow columns to auto-size */
-}
+
 
 table th, table td {
   border: 1px solid #ddd;
@@ -137,8 +134,8 @@ button:hover {
 }
 
 #antigram-header th {
-  background-color: #f8f9fa !important; /* ✅ Light gray background for contrast */
-  color: black !important;  /* ✅ Force black text */
+  background-color: #f8f9fa !important; /* Light gray background for contrast */
+  color: black !important;  /* Force black text */
   font-weight: bold;
   padding: 10px;
   border: 1px solid #ddd;
@@ -147,8 +144,7 @@ button:hover {
 
 /* Fix Input Fields */
 .reaction-input {
-  min-width: 40px; 
-  max-width: 50px; 
+  width: 50px !important; /* Match the results table column width */
   height: 30px; 
   text-align: center;
   border: 2px solid #000 !important; 
@@ -170,6 +166,68 @@ button:hover {
   text-align: center; 
   opacity: 1 !important; 
 }
+
+/* Fix Input Placeholder Visibility */
+.reaction-input::placeholder {
+  color: #888 !important;
+  font-weight: normal;
+  text-align: center;
+  opacity: 1 !important;
+}
+
+/* Fix Table Layout for Proper Alignment */
+.antigen-table {
+  width: auto !important; /* Ensure tables are not stretching */
+  max-width: 100%; /* Prevent going beyond the input table */
+  table-layout: fixed; /* Keep column widths consistent */
+}
+
+.antigen-table th,
+.antigen-table td,
+#results-table th {
+  background-color: #f4f4f4 !important;  /*  Keeps previous light gray color */
+  color: black !important;  /*  Ensures header text remains visible */
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+#results-table td {
+  white-space: nowrap !important;  /*  Prevents text wrapping */
+  overflow: hidden !important;  /*  Ensures text stays inside */
+  text-overflow: ellipsis !important;  /*  Adds '...' if the text is too long */
+  max-width: 200px;  /*  Keeps lot number columns from stretching too wide */
+  background-color: white !important;  /*  Sets background color to white */
+  color: black !important;  /*  Ensures text remains visible */
+  border: 1px solid #ddd;  /*  Keeps table borders for readability */
+  padding: 8px;
+  text-align: center;
+}
+
+/* Ensure antigen reaction cells also have a white background */
+#results-table td {
+  background-color: white !important; /* Force white background */
+}
+
+/* Fix input background color inside results table */
+#results-table input.reaction-input {
+  background-color: white !important;
+  color: black !important;
+  border: 1px solid #000; /* Keep input field visible */
+  text-align: center;
+  font-weight: bold;
+}
+
+/* Fix Input Display in Tables */
+.antigen-table input {
+  width: 100%;  /* Ensures input fully fits inside table cell */
+  height: 30px;
+  text-align: center;
+  font-size: 16px;
+  border: 2px solid #555 !important;
+  border-radius: 4px;
+  padding: 5px;
+}
+
 
 
 /* Improve Button Styling */

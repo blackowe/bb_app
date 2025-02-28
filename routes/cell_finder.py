@@ -4,17 +4,10 @@ from sqlalchemy import and_, func, distinct
 
 def register_cell_finder_routes(app, db_session):
 
-
-    from flask import request, jsonify, render_template
-from models import Antigram, Cell, Reaction, AntigramTemplate
-from sqlalchemy import distinct
-
-def register_cell_finder_routes(app, db_session):
-
     @app.route("/cell_finder", methods=["GET", "POST"])
     def cell_finder():
         try:
-            # ✅ Fetch all distinct antigens in both GET and POST requests
+            # ✅ Fetch all distinct antigens and ensure order matches the input
             all_antigens = db_session.query(distinct(Reaction.antigen)).order_by(Reaction.antigen).all()
             antigen_list = [antigen[0] for antigen in all_antigens]  # Extract as list
 
@@ -58,10 +51,10 @@ def register_cell_finder_routes(app, db_session):
                     template_name = template.name if template else "Unknown Template"
 
                     reactions = db_session.query(Reaction).filter_by(cell_id=cell.id).all()
-                    
-                    # ✅ Ensure reactions are sorted in the same order as `antigen_list`
+
+                    # ✅ Ensure reactions are sorted in the same order as `antigen_profile` (input order)
                     reaction_dict = {reaction.antigen: reaction.reaction_value for reaction in reactions}
-                    ordered_reactions = {antigen: reaction_dict.get(antigen, "-") for antigen in antigen_list}
+                    ordered_reactions = [reaction_dict.get(antigen, "-") for antigen in antigen_profile.keys()]
 
                     results.append({
                         "antigram": {
@@ -72,15 +65,16 @@ def register_cell_finder_routes(app, db_session):
                         },
                         "cell": {
                             "cell_number": cell.cell_number,
-                            "reactions": ordered_reactions  # ✅ Now reactions match antigen order
+                            "reactions": ordered_reactions  # ✅ Now reactions match input order
                         }
                     })
 
-                return jsonify(results), 200
+                return jsonify({"results": results, "antigens": list(antigen_profile.keys())}), 200
 
         except Exception as e:
             print("Error in Cell Finder Backend:", str(e))
             return jsonify({"error": str(e)}), 500
+
 
 
     @app.route("/api/antigens", methods=["GET"])

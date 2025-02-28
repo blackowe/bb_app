@@ -9,44 +9,33 @@ document.addEventListener("DOMContentLoaded", async function () {
         const data = await response.json();
         const antigens = data.antigens;
 
-        // ✅ Populate the antigen input form dynamically
+        // Populate the antigen input form dynamically
         const antigenHeaderRow = document.getElementById("antigen-header-row");
         const antigenInputRow = document.getElementById("antigen-input-row");
 
-        antigenHeaderRow.innerHTML = "";  // Clear existing headers
-        antigenInputRow.innerHTML = "";   // Clear existing inputs
+        antigenHeaderRow.innerHTML = `<th>Antigen</th>`; // Label first column
+        antigenInputRow.innerHTML = `<td>Reaction</td>`; // Align first column
 
         antigens.forEach(antigen => {
             antigenHeaderRow.innerHTML += `<th>${antigen}</th>`;
-            antigenInputRow.innerHTML += `<td><input type="text" name="${antigen}" maxlength="1" placeholder="0 or +"></td>`;
+            antigenInputRow.innerHTML += `<td><input type="text" class="reaction-input" name="${antigen}" maxlength="1" placeholder="0 or +"></td>`;
         });
 
-        // ✅ Populate the results table dynamically
-        const resultsHeaderRow = document.getElementById("results-header-row");
-        resultsHeaderRow.innerHTML = `
-            <th>Lot Number</th>
-            <th>Expiration Date</th>
-            <th>Cell Number</th>
-        `; // Keep fixed columns
-
-        antigens.forEach(antigen => {
-            resultsHeaderRow.innerHTML += `<th>${antigen}</th>`;
-        });
-
-        // ✅ Store antigen order in global variable for consistent reference
+        // Store antigen order globally for use in results table
         window.antigenHeaders = antigens;
 
     } catch (error) {
-        console.error("Error loading antigens:", error);
+        console.error("❌ Error loading antigens:", error);
     }
 });
 
-// ✅ Handle form submission and search for matching cells
+// Handle form submission and search for matching cells
 document.getElementById("cell-finder-form").addEventListener("submit", async function (event) {
     event.preventDefault();
 
     const antigenProfile = {};
     const formData = new FormData(event.target);
+
     for (const [key, value] of formData.entries()) {
         if (value) {
             antigenProfile[key] = value.trim();
@@ -54,46 +43,55 @@ document.getElementById("cell-finder-form").addEventListener("submit", async fun
     }
 
     try {
-        const response = await fetch("/cell_finder", {  // ✅ Matches Flask route
+        const response = await fetch("/cell_finder", {  // Matches Flask route
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ antigenProfile }),
         });
 
         if (!response.ok) {
-            console.error("Failed to fetch matching cells:", response.statusText);
+            console.error("❌ Failed to fetch matching cells:", response.statusText);
             return;
         }
 
-        const results = await response.json();
-        console.log("API Response:", results);
+        const data = await response.json();
+        console.log("✅ API Response:", data);
 
-        // ✅ Ensure antigen headers are correctly mapped (avoid inconsistencies)
-        const antigenHeaders = window.antigenHeaders || [];
-        
-        // ✅ Populate results table
+        const results = data.results;
+        const antigenHeaders = data.antigens || [];  // Use the order returned by the backend
+
+        const resultsHeaderRow = document.getElementById("results-header-row");
         const resultsBody = document.getElementById("results-body");
+
         resultsBody.innerHTML = ""; // Clear previous results
 
-        if (results.length > 0) {
-            results.forEach(result => {
-                const row = document.createElement("tr");
-
-                row.innerHTML = `
-                    <td>${result.antigram.lot_number}</td>
-                    <td>${result.antigram.expiration_date}</td>
-                    <td>${result.cell.cell_number}</td>
-                    ${antigenHeaders.map(antigen => {
-                        let reaction = result.cell.reactions[antigen]; // Fetch reaction
-                        return `<td>${reaction !== undefined ? reaction : "-"}</td>`; // Ensure it shows correct values
-                    }).join("")}
-                `;
-                resultsBody.appendChild(row);
-            });
-        } else {
+        if (results.length === 0) {
             resultsBody.innerHTML = "<tr><td colspan='13'>No matching cells found.</td></tr>";
+            return;
         }
+
+        // Ensure antigen headers appear in the correct order in the results table
+        resultsHeaderRow.innerHTML = `
+            <th>Lot Number</th>
+            <th>Expiration Date</th>
+            <th>Cell Number</th>
+            ${antigenHeaders.map(antigen => `<th>${antigen}</th>`).join("")}
+        `;
+
+        // Populate the result rows correctly (remove input fields)
+        results.forEach(result => {
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${result.antigram.lot_number}</td>
+                <td>${result.antigram.expiration_date}</td>
+                <td>${result.cell.cell_number}</td>
+                ${result.cell.reactions.map(reaction => `<td>${reaction !== undefined ? reaction : '-'}</td>`).join("")}
+            `;
+            resultsBody.appendChild(row);
+        });
+
     } catch (error) {
-        console.error("Error in Cell Finder:", error);
+        console.error("❌ Error in Cell Finder:", error);
     }
 });
