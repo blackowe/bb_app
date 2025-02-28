@@ -11,16 +11,42 @@ document.addEventListener("DOMContentLoaded", () => {
     let selectedLotNumber = null;
 
     // Function to fetch and render ABID results
-    const fetchAndRenderAbidResults = async () => {
+    const fetchAndRenderPatientReactions = async () => {
         try {
-            const abidResponse = await fetch("/api/abid");
-            if (!abidResponse.ok) throw new Error("Failed to fetch ABID results.");
-            const abidResults = await abidResponse.json();
-            renderAbidResults(abidResults);
+            const response = await fetch("/api/patient-reactions");
+            if (!response.ok) throw new Error("Failed to fetch patient reactions.");
+    
+            const data = await response.json();
+            const reactions = data.patient_reactions || [];
+    
+            summaryTable.innerHTML = ""; // Clear existing rows
+    
+            if (reactions.length === 0) {
+                summaryTable.innerHTML = `<tr><td colspan="4">No patient reactions recorded.</td></tr>`;
+                return;
+            }
+    
+            reactions.forEach(({ lot_number, cell_number, patient_reaction }) => {
+                const row = document.createElement("tr");
+                row.dataset.cellNumber = cell_number;
+                row.dataset.lotNumber = lot_number;
+    
+                row.innerHTML = `
+                    <td>${lot_number}</td>
+                    <td>${cell_number}</td>
+                    <td>${patient_reaction}</td>
+                    <td><button class="delete-btn">❌</button></td>
+                `;
+    
+                summaryTable.appendChild(row);
+            });
+    
         } catch (error) {
-            console.error("Error fetching ABID results:", error);
+            console.error("❌ Error fetching patient reactions:", error);
         }
     };
+    
+    
 
     // Search for antigrams (no reset of summary table)
     searchBtn.addEventListener("click", async () => {
@@ -70,17 +96,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target.classList.contains("select-btn")) {
             selectedAntigramId = e.target.dataset.antigramId;
             selectedLotNumber = e.target.dataset.lotNumber;
-
+            
+            console.log("Selected Antigram ID:", selectedAntigramId);
+    
             try {
                 const response = await fetch(`/api/antigrams/${selectedAntigramId}`);
                 if (!response.ok) {
                     alert("Failed to fetch antigram details.");
                     return;
                 }
-
+    
                 const antigram = await response.json();
                 reactionFormContainer.innerHTML = `<h3>Enter Patient Reactions for Lot ${selectedLotNumber}</h3>`;
-
+    
                 antigram.cells.forEach(cell => {
                     const formRow = document.createElement("div");
                     formRow.classList.add("form-row");
@@ -94,109 +122,133 @@ document.addEventListener("DOMContentLoaded", () => {
                     `;
                     reactionFormContainer.appendChild(formRow);
                 });
-
+    
                 saveAllReactionsBtn.style.display = "block";
             } catch (error) {
                 console.error("Error fetching antigram details:", error);
             }
         }
     });
+    
 
-    // Save patient reactions and update the summary (append or update rows)
+    // Save all reactions for the selected antigram
     saveAllReactionsBtn.addEventListener("click", async () => {
         try {
-            const inputs = reactionFormContainer.querySelectorAll("input[data-cell-number]");
-            const reactions = Array.from(inputs)
+            if (!selectedAntigramId) {
+                alert("Error: No antigram selected.");
+                return;
+            }
+    
+            const reactions = Array.from(
+                reactionFormContainer.querySelectorAll("input[data-cell-number]")
+            )
                 .map(input => ({
-                    cell_number: input.dataset.cellNumber,
+                    cell_number: parseInt(input.dataset.cellNumber),
                     patient_rxn: input.value.trim(),
-                }));
-
-            const response = await fetch("/api/patient-reaction", {
+                }))
+                .filter(r => r.patient_rxn === "+" || r.patient_rxn === "0");
+    
+            if (reactions.length === 0) {
+                alert("No valid reactions to save.");
+                return;
+            }
+    
+            const response = await fetch("/api/patient-reactions", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ antigram_id: selectedAntigramId, reactions }),
             });
-
-            if (response.ok) {
-                // Append new reactions to the summary
-                reactions.forEach(({ cell_number, patient_rxn }) => {
-                    if (patient_rxn !== "") {
-                        const existingRow = summaryTable.querySelector(
-                            `tr[data-cell-number="${cell_number}"][data-lot-number="${selectedLotNumber}"]`
-                        );
-
-                        if (existingRow) {
-                            existingRow.querySelector(".reaction-cell").textContent = patient_rxn;
-                        } else {
-                            const newRow = document.createElement("tr");
-                            newRow.dataset.lotNumber = selectedLotNumber;
-                            newRow.dataset.cellNumber = cell_number;
-                            newRow.innerHTML = `
-                                <td>${selectedLotNumber}</td>
-                                <td>${cell_number}</td>
-                                <td class="reaction-cell">${patient_rxn}</td>
-                                <td><button class="delete-btn">Delete</button></td>
-                            `;
-                            summaryTable.appendChild(newRow);
-                        }
-                    }
-                });
-
-                // Re-fetch and update ABID results
-                fetchAndRenderAbidResults();
-            } else {
-                throw new Error("Failed to save reactions.");
+    
+            // ✅ **Fix: Check response status before throwing an error**
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                throw new Error(`Failed to save reactions: ${errorMessage}`);
             }
+    
+            console.log("✅ Reactions saved successfully!");
+    
+            // ✅ **Fix: Ensure ABID results are re-fetched after saving reactions**
+            await fetchAndRenderPatientReactions();
+            await fetchAndRenderAbidResults();
+    
         } catch (error) {
-            console.error("Error saving reactions:", error);
-            alert(error.message);
+            console.error("❌ Error saving reactions:", error);
+            alert("Error saving reactions: " + error.message);
         }
     });
+    
+    
+    
 
-    // Delete reactions from the summary
     summaryTable.addEventListener("click", async (e) => {
         if (e.target.classList.contains("delete-btn")) {
             const row = e.target.closest("tr");
             const cellNumber = row.dataset.cellNumber;
-
+            const lotNumber = row.dataset.lotNumber;
+    
             try {
                 const response = await fetch(`/api/patient-reactions/${selectedAntigramId}/${cellNumber}`, {
                     method: "DELETE",
                 });
-
+    
                 if (response.ok) {
                     row.remove();
-
-                    // Re-fetch and update ABID results
-                    fetchAndRenderAbidResults();
+                    fetchAndRenderPatientReactions();  // Update summary table
+                    fetchAndRenderAbidResults(); // Update ABID results
                 } else {
                     throw new Error("Failed to delete the reaction.");
                 }
             } catch (error) {
-                console.error("Error deleting reaction or updating ABID results:", error);
-                alert(error.message);
+                console.error("❌ Error deleting reaction:", error);
+                alert("Failed to delete reaction.");
             }
         }
     });
+    
 
     // Render ABID results
     const renderAbidResults = (results) => {
         const createRowDisplay = (data, label) => {
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 return `<div><strong>${label}:</strong> None</div>`;
             }
-
+    
             let row = `<div><strong>${label}:</strong> `;
             row += data.map(item => `<span class="antigen">${item}</span>`).join(", ");
             row += `</div>`;
             return row;
         };
-
+    
+        // Properly format ruled-out details (Lot Number & Cell Number)
+        const ruledOutDetailsDisplay = Object.entries(results.ruled_out_details || {})
+            .map(([antigen, cells]) => 
+                `<div><strong>${antigen}:</strong> ruled out by cells: ${cells.map(cell => `Lot ${cell.lot_number}, Cell ${cell.cell_number}`).join(", ")}</div>`
+            ).join("");
+    
         abidResultsContainer.innerHTML = `
             ${createRowDisplay(results.ruled_out, "Ruled Out (RO)")}
             ${createRowDisplay(results.still_to_rule_out, "Still to Rule Out (STRO)")}
             ${createRowDisplay(results.match, "100% Match")}
+            <div><strong>Ruled Out Details:</strong></div>
+            <div id="ruled-out-details">${ruledOutDetailsDisplay || "None"}</div>
         `;
     };
+
+    const fetchAndRenderAbidResults = async () => {
+        try {
+            console.log("✅ Fetching ABID results...");
+            const response = await fetch("/api/abid");
+            if (!response.ok) throw new Error("Failed to fetch ABID results.");
+    
+            const abidResults = await response.json();
+            console.log("✅ ABID Results:", abidResults);
+            
+            renderAbidResults(abidResults);  // ✅ **Ensure fresh results are rendered**
+        } catch (error) {
+            console.error("❌ Error fetching ABID results:", error);
+            alert("Error fetching ABID results: " + error.message);
+        }
+    };
+    
+    
 });
