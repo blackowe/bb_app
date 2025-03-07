@@ -1,6 +1,6 @@
 from flask import request, jsonify, render_template
 from models import Antigram, Cell, Reaction, AntigramTemplate
-from sqlalchemy import and_, func, distinct
+from sqlalchemy import distinct
 
 def register_cell_finder_routes(app, db_session):
 

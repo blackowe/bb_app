@@ -1,5 +1,5 @@
 from flask import request, jsonify
-from models import Antigram, Cell, Reaction, AntigramTemplate
+from models import Antigram, Cell, Reaction, AntigramTemplate, AntigenRuleOut, PatientReactionProfile
 from datetime import datetime
 from sqlalchemy import cast, String
 
@@ -123,6 +123,40 @@ def register_antigram_routes(app, db_session):
                 "cells": cell_data
             }), 200
         except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
+    @app.route("/api/antigrams/<int:id>", methods=["DELETE"])
+    def delete_antigram_by_id(id):
+        """Deletes a single antigram and its associated cells and reactions."""
+        try:
+            # Check if antigram exists
+            antigram = db_session.query(Antigram).filter_by(id=id).first()
+            if not antigram:
+                return jsonify({"error": f"Antigram with ID {id} not found"}), 404
+
+            # Get all cells for this antigram
+            cells = db_session.query(Cell).filter_by(antigram_id=id).all()
+            cell_ids = [cell.id for cell in cells]
+
+            # First delete all antigen_rule_outs records that reference these cells
+            if cell_ids:
+                db_session.query(AntigenRuleOut).filter(AntigenRuleOut.cell_id.in_(cell_ids)).delete(synchronize_session=False)
+
+            # Delete all patient reaction profiles for these cells
+            if cell_ids:
+                db_session.query(PatientReactionProfile).filter(PatientReactionProfile.cell_id.in_(cell_ids)).delete(synchronize_session=False)
+
+            # Now delete the antigram (cascade will handle cells and reactions)
+            db_session.delete(antigram)
+            db_session.commit()
+            
+            return jsonify({
+                "message": f"Antigram with ID {id} has been deleted successfully.",
+                "deleted_lot_number": antigram.lot_number
+            }), 200
+        except Exception as e:
+            db_session.rollback()
             return jsonify({"error": str(e)}), 500
 
 

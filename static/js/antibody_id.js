@@ -26,10 +26,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
     
-            reactions.forEach(({ lot_number, cell_number, patient_reaction }) => {
+            reactions.forEach(({ lot_number, cell_number, patient_reaction, antigram_id }) => {
                 const row = document.createElement("tr");
                 row.dataset.cellNumber = cell_number;
                 row.dataset.lotNumber = lot_number;
+                row.dataset.antigramId = antigram_id;  // Store antigram_id in the row
     
                 row.innerHTML = `
                     <td>${lot_number}</td>
@@ -159,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ antigram_id: selectedAntigramId, reactions }),
             });
     
-            // ✅ **Fix: Check response status before throwing an error**
+            //  Check response status before throwing an error**
             if (!response.ok) {
                 const errorMessage = await response.text();
                 throw new Error(`Failed to save reactions: ${errorMessage}`);
@@ -167,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
             console.log("✅ Reactions saved successfully!");
     
-            // ✅ **Fix: Ensure ABID results are re-fetched after saving reactions**
+            //  Ensure ABID results are re-fetched after saving reactions**
             await fetchAndRenderPatientReactions();
             await fetchAndRenderAbidResults();
     
@@ -184,20 +185,30 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target.classList.contains("delete-btn")) {
             const row = e.target.closest("tr");
             const cellNumber = row.dataset.cellNumber;
-            const lotNumber = row.dataset.lotNumber;
+            const antigramId = row.dataset.antigramId;  // Get antigram_id from the row
+    
+            if (!antigramId) {
+                console.error("No antigram ID found for this reaction");
+                return;
+            }
     
             try {
-                const response = await fetch(`/api/patient-reactions/${selectedAntigramId}/${cellNumber}`, {
+                const response = await fetch(`/api/patient-reactions/${antigramId}/${cellNumber}`, {
                     method: "DELETE",
                 });
     
-                if (response.ok) {
-                    row.remove();
-                    fetchAndRenderPatientReactions();  // Update summary table
-                    fetchAndRenderAbidResults(); // Update ABID results
-                } else {
+                if (!response.ok) {
                     throw new Error("Failed to delete the reaction.");
                 }
+
+                const abidResponse = await response.json();
+                
+                // Remove the row from the table
+                row.remove();
+                
+                // Update the ABID results display
+                renderAbidResults(abidResponse);
+                
             } catch (error) {
                 console.error("❌ Error deleting reaction:", error);
                 alert("Failed to delete reaction.");
@@ -210,27 +221,170 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderAbidResults = (results) => {
         const createRowDisplay = (data, label) => {
             if (!data || data.length === 0) {
-                return `<div><strong>${label}:</strong> None</div>`;
+                return `<div class="result-row"><strong>${label}:</strong> None</div>`;
             }
     
-            let row = `<div><strong>${label}:</strong> `;
+            let row = `<div class="result-row"><strong>${label}:</strong> `;
             row += data.map(item => `<span class="antigen">${item}</span>`).join(", ");
             row += `</div>`;
             return row;
         };
     
-        // Properly format ruled-out details (Lot Number & Cell Number)
-        const ruledOutDetailsDisplay = Object.entries(results.ruled_out_details || {})
-            .map(([antigen, cells]) => 
-                `<div><strong>${antigen}:</strong> ruled out by cells: ${cells.map(cell => `Lot ${cell.lot_number}, Cell ${cell.cell_number}`).join(", ")}</div>`
-            ).join("");
+        // Group antigens by rule-out type
+        const groupedRuleOuts = {
+            single: [],
+            homozygous: [],
+            heterozygous: []
+        };
+
+        Object.entries(results.ruled_out_details || {}).forEach(([antigen, cells]) => {
+            // First check for homozygous rule-outs
+            const homozygousCells = cells.filter(cell => cell.rule_type === 'homozygous');
+            if (homozygousCells.length > 0) {
+                // If we have a homozygous rule-out, use that
+                groupedRuleOuts.homozygous.push({
+                    antigen,
+                    cell: homozygousCells[0].cell_number,
+                    lot: homozygousCells[0].lot_number
+                });
+                return; // Skip to next antigen
+            }
+
+            // Then check for single rule-outs
+            const singleCells = cells.filter(cell => cell.rule_type === 'single');
+            if (singleCells.length > 0) {
+                groupedRuleOuts.single.push({
+                    antigen,
+                    cell: singleCells[0].cell_number,
+                    lot: singleCells[0].lot_number
+                });
+                return; // Skip to next antigen
+            }
+
+            // Finally check for heterozygous rule-outs
+            const heterozygousCells = cells.filter(cell => cell.rule_type === 'heterozygous');
+            if (heterozygousCells.length >= 3) {
+                groupedRuleOuts.heterozygous.push({
+                    antigen,
+                    cells: heterozygousCells.slice(0, 3).map(cell => ({
+                        number: cell.cell_number,
+                        lot: cell.lot_number
+                    }))
+                });
+            }
+        });
+
+        // Create the HTML for each rule-out type section
+        const createRuleOutSection = (title, antigens, template) => {
+            if (antigens.length === 0) return '';
+            
+            const antigenList = antigens.map(template).join('');
+            return `
+                <div class="rule-out-section">
+                    <h4>${title}</h4>
+                    ${antigenList}
+                </div>
+            `;
+        };
+
+        const singleRuleOuts = createRuleOutSection(
+            'Single Antigen Rule-Outs',
+            groupedRuleOuts.single,
+            item => `<div class="rule-out-item">
+                <strong>${item.antigen}:</strong> 
+                <span class="cell-info">
+                    <span class="lot-number">${item.lot}</span>
+                    Cell ${item.cell}
+                </span>
+            </div>`
+        );
+
+        const homoRuleOuts = createRuleOutSection(
+            'Homozygous Rule-Outs',
+            groupedRuleOuts.homozygous,
+            item => `<div class="rule-out-item">
+                <strong>${item.antigen}:</strong> 
+                <span class="cell-info">
+                    <span class="lot-number">${item.lot}</span>
+                    Cell ${item.cell}
+                </span>
+            </div>`
+        );
+
+        const heteroRuleOuts = createRuleOutSection(
+            'Heterozygous Rule-Outs',
+            groupedRuleOuts.heterozygous,
+            item => `<div class="rule-out-item">
+                <strong>${item.antigen}:</strong> 
+                <span class="cell-info">
+                    ${item.cells.map(cell => `
+                        <span class="lot-number">${cell.lot}</span>
+                        Cell ${cell.number}
+                    `).join(", ")}
+                </span>
+            </div>`
+        );
+
+        // Add some CSS styles
+        const styles = `
+            <style>
+                .result-row {
+                    margin-bottom: 15px;
+                    padding: 10px;
+                    background-color: #f8f9fa;
+                    border-radius: 5px;
+                }
+                .rule-out-section {
+                    margin: 15px 0;
+                    padding: 15px;
+                    background-color: #fff;
+                    border: 1px solid #dee2e6;
+                    border-radius: 5px;
+                }
+                .rule-out-section h4 {
+                    margin-top: 0;
+                    color: #495057;
+                    border-bottom: 2px solid #e9ecef;
+                    padding-bottom: 5px;
+                }
+                .rule-out-item {
+                    margin: 8px 0;
+                    padding: 5px 0;
+                    display: flex;
+                    align-items: baseline;
+                }
+                .rule-out-item strong {
+                    min-width: 45px;
+                    margin-right: 10px;
+                }
+                .cell-info {
+                    color: #666;
+                }
+                .lot-number {
+                    color: #0066cc;
+                    margin-right: 8px;
+                    font-family: monospace;
+                }
+                .antigen {
+                    background-color: #e9ecef;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    margin: 0 2px;
+                }
+            </style>
+        `;
     
         abidResultsContainer.innerHTML = `
+            ${styles}
             ${createRowDisplay(results.ruled_out, "Ruled Out (RO)")}
             ${createRowDisplay(results.still_to_rule_out, "Still to Rule Out (STRO)")}
             ${createRowDisplay(results.match, "100% Match")}
-            <div><strong>Ruled Out Details:</strong></div>
-            <div id="ruled-out-details">${ruledOutDetailsDisplay || "None"}</div>
+            <div class="rule-out-details">
+                <h3>Ruled Out Details</h3>
+                ${singleRuleOuts}
+                ${homoRuleOuts}
+                ${heteroRuleOuts}
+            </div>
         `;
     };
 
@@ -243,7 +397,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const abidResults = await response.json();
             console.log("✅ ABID Results:", abidResults);
             
-            renderAbidResults(abidResults);  // ✅ **Ensure fresh results are rendered**
+            renderAbidResults(abidResults);  // *Ensure fresh results are rendered**
         } catch (error) {
             console.error("❌ Error fetching ABID results:", error);
             alert("Error fetching ABID results: " + error.message);

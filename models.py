@@ -82,3 +82,50 @@ class PatientReactionProfile(Base):
             "lot_number": self.cell.antigram.lot_number,
             "patient_rxn": self.patient_rxn,
         }
+
+class AntigenPair(Base):
+    __tablename__ = 'antigen_pairs'
+    id = Column(Integer, primary_key=True)
+    antigen1 = Column(String(50), nullable=False)
+    antigen2 = Column(String(50), nullable=True)  # Made nullable for single antigen rules
+    rule_type = Column(String(20), nullable=False)  # 'homozygous', 'heterozygous', or 'single'
+    required_count = Column(Integer, nullable=False, default=3)  # Number of cells needed for rule-out
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "antigen1": self.antigen1,
+            "antigen2": self.antigen2,
+            "rule_type": self.rule_type,
+            "required_count": self.required_count
+        }
+
+class AntigenRuleOut(Base):
+    __tablename__ = 'antigen_rule_outs'
+    id = Column(Integer, primary_key=True)
+    antigen = Column(String(50), nullable=False)
+    cell_id = Column(Integer, ForeignKey('cells.id'), nullable=False)
+    rule_type = Column(String(20), nullable=False)  # 'homozygous' or 'heterozygous'
+    paired_antigen = Column(String(50))  # The paired antigen if this is part of a pair
+    patient_reaction = Column(String(10), nullable=False)
+    cell_reaction = Column(String(10), nullable=False)
+    paired_reaction = Column(String(10))  # The reaction of the paired antigen
+    
+    # Relationships
+    cell = relationship("Cell", backref="rule_outs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "antigen": self.antigen,
+            "cell_id": self.cell_id,
+            "rule_type": self.rule_type,
+            "paired_antigen": self.paired_antigen,
+            "patient_reaction": self.patient_reaction,
+            "cell_reaction": self.cell_reaction,
+            "paired_reaction": self.paired_reaction,
+            "cell": {
+                "cell_number": self.cell.cell_number,
+                "lot_number": self.cell.antigram.lot_number if self.cell.antigram else None
+            }
+        }

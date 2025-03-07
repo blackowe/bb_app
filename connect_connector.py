@@ -1,4 +1,3 @@
-
 import os
 from sqlalchemy import create_engine
 
@@ -38,7 +37,6 @@ def connect_with_connector():
         pool_timeout=30,
         pool_recycle=1800,
         echo=False
-
     )
     print("Using Google Cloud SQL database")
     return engine

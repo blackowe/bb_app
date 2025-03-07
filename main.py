@@ -5,6 +5,7 @@ from routes.antigrams import register_antigram_routes
 from routes.antibody_id import register_antibody_id_routes
 from routes.cell_finder import register_cell_finder_routes
 from routes.add_antigram import register_add_antigram_routes
+from routes.antigen_rules import register_antigen_rules_routes
 
 from models import Base
 from dotenv import load_dotenv
@@ -30,6 +31,7 @@ register_antigram_routes(app, db_session)
 register_antibody_id_routes(app, db_session)
 register_cell_finder_routes(app, db_session)
 register_add_antigram_routes(app, db_session)
+register_antigen_rules_routes(app, db_session)
 
 
 @app.teardown_appcontext
