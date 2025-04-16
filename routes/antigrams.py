@@ -1,5 +1,5 @@
-from flask import request, jsonify
-from models import Antigram, Cell, Reaction, AntigramTemplate, AntigenRuleOut, PatientReactionProfile
+from flask import request, jsonify, render_template
+from models import Antigram, Cell, Reaction, AntigramTemplate, PatientReactionProfile
 from datetime import datetime
 from sqlalchemy import cast, String
 
@@ -139,11 +139,7 @@ def register_antigram_routes(app, db_session):
             cells = db_session.query(Cell).filter_by(antigram_id=id).all()
             cell_ids = [cell.id for cell in cells]
 
-            # First delete all antigen_rule_outs records that reference these cells
-            if cell_ids:
-                db_session.query(AntigenRuleOut).filter(AntigenRuleOut.cell_id.in_(cell_ids)).delete(synchronize_session=False)
-
-            # Delete all patient reaction profiles for these cells
+            # First delete all patient reaction profiles for these cells
             if cell_ids:
                 db_session.query(PatientReactionProfile).filter(PatientReactionProfile.cell_id.in_(cell_ids)).delete(synchronize_session=False)
 

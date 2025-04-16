@@ -1,5 +1,6 @@
 from flask import request, jsonify, render_template
-from models import Cell, PatientReactionProfile, Reaction, AntigenPair, AntigenRuleOut
+from models import Cell, PatientReactionProfile, Reaction, AntigenRule
+import json
 
 def register_antibody_id_routes(app, db_session):
 
@@ -15,7 +16,6 @@ def register_antibody_id_routes(app, db_session):
             print(f"❌ Error clearing patient reactions: {e}")
         
         return render_template('antibody_id.html')
-
 
     @app.route('/api/patient-reactions', methods=['GET', 'POST'])
     def handle_patient_reactions():
@@ -33,11 +33,11 @@ def register_antibody_id_routes(app, db_session):
                     PatientReactionProfile.cell.has(antigram_id=antigram_id)
                 ).all()
 
-                # **Delete all existing reactions** before inserting new ones
+                # Delete all existing reactions before inserting new ones
                 if existing_reactions:
                     db_session.query(PatientReactionProfile).filter(
                         PatientReactionProfile.cell.has(antigram_id=antigram_id)
-                    ).delete()
+                    ).delete(synchronize_session=False)
 
                 # Ensure only valid reactions are saved
                 valid_reactions = [r for r in reactions if r.get('patient_rxn') in ["+", "0"]]
@@ -57,13 +57,18 @@ def register_antibody_id_routes(app, db_session):
                 for reaction in valid_reactions:
                     cell_id = cell_map.get(reaction['cell_number'])
                     if cell_id:
-                        new_reaction = PatientReactionProfile(cell_id=cell_id, patient_rxn=reaction['patient_rxn'])
+                        new_reaction = PatientReactionProfile(
+                            cell_id=cell_id,
+                            patient_rxn=reaction['patient_rxn'],
+                            is_ruled_out=False,  # Initialize as not ruled out
+                            antigen=None  # Initialize with no antigen ruled out
+                        )
                         db_session.add(new_reaction)
 
                 db_session.commit()
 
-                # ✅ **Trigger antibody identification after update**
-                return antibody_identification()
+                # Trigger antibody identification after update
+                return antibody_identification(db_session)
 
             except Exception as e:
                 db_session.rollback()
@@ -76,13 +81,14 @@ def register_antibody_id_routes(app, db_session):
                 if not reactions:
                     return jsonify({"message": "No patient reactions found.", "patient_reactions": []}), 200
 
-                # Include antigram_id in the response data
                 response_data = [
                     {
                         "lot_number": r.cell.antigram.lot_number if r.cell else "Unknown",
                         "cell_number": r.cell.cell_number if r.cell else "Unknown",
                         "patient_reaction": r.patient_rxn,
-                        "antigram_id": r.cell.antigram_id if r.cell else None
+                        "antigram_id": r.cell.antigram_id if r.cell else None,
+                        "is_ruled_out": r.is_ruled_out,
+                        "antigen": r.antigen
                     } for r in reactions if r.cell is not None
                 ]
 
@@ -91,18 +97,12 @@ def register_antibody_id_routes(app, db_session):
                 print(f"❌ Error in handle_patient_reactions GET: {e}")
                 return jsonify({"error": "Internal Server Error"}), 500
 
-
-
     @app.route('/api/clear-patient-reactions', methods=['DELETE'])
     def clear_patient_reactions():
         try:
-            # Delete all records from the PatientReactionProfile table
             db_session.query(PatientReactionProfile).delete()
             db_session.commit()
-
-            # Trigger antibody identification after clearing reactions
-            return antibody_identification()
-
+            return antibody_identification(db_session)
         except Exception as e:
             db_session.rollback()
             return jsonify({"error": str(e)}), 500
@@ -110,16 +110,11 @@ def register_antibody_id_routes(app, db_session):
     @app.route('/api/patient-reactions/<int:antigram_id>/<int:cell_number>', methods=['DELETE'])
     def delete_patient_reaction(antigram_id, cell_number):
         try:
-            # Find the cell by antigram ID and cell number
             cell = db_session.query(Cell).filter_by(antigram_id=antigram_id, cell_number=cell_number).first()
-
             if cell:
-                # Delete the associated reaction
                 db_session.query(PatientReactionProfile).filter_by(cell_id=cell.id).delete()
                 db_session.commit()
-
-                # Trigger antibody identification after deleting reactions
-                return antibody_identification()
+                return antibody_identification(db_session)
             else:
                 return jsonify({"error": "Cell not found."}), 404
         except Exception as e:
@@ -127,346 +122,304 @@ def register_antibody_id_routes(app, db_session):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/abid', methods=['GET'])
-    def antibody_identification():
-        print("✅ antibody_identification() route was hit!")
-
+    def get_antibody_identification():
+        """
+        Get the current antibody identification results.
+        """
         try:
-            patient_reactions = db_session.query(PatientReactionProfile).all()
-            if not patient_reactions:
-                return jsonify({"error": "No patient reactions found"}), 404
+            results = antibody_identification(db_session)
+            return jsonify(results), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-            ruled_out = set()
-            still_to_rule_out = set()
-            match_candidates = set()
-            ruled_out_mapping = {}
-            antigen_presence_map = {}
+def antibody_identification(db_session):
+    """Process patient reactions to identify ruled-out antigens and potential matches."""
+    try:
+        # Reset all is_ruled_out flags
+        db_session.query(PatientReactionProfile).update({"is_ruled_out": False, "antigen": None})
+        db_session.commit()
+        
+        # Get all patient reactions
+        patient_reactions = db_session.query(PatientReactionProfile).all()
+        
+        if not patient_reactions:
+            return {
+                "ruled_out": [],
+                "potential_matches": [],
+                "progress": {}
+            }
+        
+        # Initialize sets for tracking
+        ruled_out = set()
+        potential_matches = set()
+        progress = {}
+        
+        # Get all unique antigens from reactions and rules
+        all_antigens = set()
+        antigen_reactions = {}  # Track reactions for each antigen
+        
+        # First, get antigens from cell reactions
+        for reaction in patient_reactions:
+            cell = db_session.query(Cell).get(reaction.cell_id)
+            if cell:
+                for r in cell.reactions:
+                    all_antigens.add(r.antigen)
+                    if r.antigen not in antigen_reactions:
+                        antigen_reactions[r.antigen] = []
+                    antigen_reactions[r.antigen].append({
+                        "cell_reaction": r.reaction_value,
+                        "patient_reaction": reaction.patient_rxn,
+                        "cell_number": cell.cell_number,
+                        "lot_number": cell.antigram.lot_number
+                    })
+        
+        # Then, get antigens from rules to ensure we don't miss any
+        rules = db_session.query(AntigenRule).all()
+        for rule in rules:
+            all_antigens.add(rule.target_antigen)
+        
+        # Process each antigen
+        for antigen in all_antigens:
+            # Skip if already ruled out
+            if antigen in ruled_out:
+                continue
 
-            # Define clinically insignificant antibodies
-            insignificant_antigens = {"Cw", "Kpa", "Kpb", "Jsa", "Jsb", "Lua", "Lub"}
+            # Track progress for this antigen
+            progress[antigen] = {
+                "total_rule_outs": 0,
+                "required_count": 0,
+                "is_complete": False
+            }
+            
+            # Get rules for this antigen
+            antigen_rules = db_session.query(AntigenRule).filter(
+                AntigenRule.target_antigen == antigen
+            ).all()
+            
+            if not antigen_rules:
+                # If no rules but we have reactions, consider it for potential matches
+                if antigen in antigen_reactions:
+                    has_positive = any(r["patient_reaction"] == "+" for r in antigen_reactions[antigen])
+                    if has_positive:
+                        potential_matches.add(antigen)
+                continue
 
-            # Step 1: Process each patient reaction and build antigen presence map
+            # Set required count based on rules
+            progress[antigen]["required_count"] = max(rule.required_count for rule in antigen_rules)
+            
+            # Process each cell's reactions
             for reaction in patient_reactions:
-                cell = db_session.query(Cell).filter_by(id=reaction.cell_id).first()
+                cell = db_session.query(Cell).get(reaction.cell_id)
                 if not cell:
                     continue
 
-                cell_reactions = db_session.query(Reaction).filter_by(cell_id=cell.id).all()
-                
-                # Process each antigen in the cell
-                for r in cell_reactions:
-                    if not isinstance(r, Reaction):
-                        continue
+                # Process rule-out logic
+                is_ruled_out, rule_details = process_rule_out(db_session, reaction, antigen)
 
-                    # Skip clinically insignificant antigens
-                    if r.antigen in insignificant_antigens:
-                        continue
-
-                    # Process rule-out logic
-                    is_ruled_out, rule_type, rule_details = process_rule_out(
-                        r.antigen, cell_reactions, reaction.patient_rxn, db_session
+                if is_ruled_out:
+                    # Track rule-out progress
+                    is_complete, total_rule_outs = track_rule_out_progress(
+                        antigen, rule_details, db_session
                     )
-
-                    if is_ruled_out:
-                        # Create rule-out record
-                        rule_out = AntigenRuleOut(
-                            antigen=r.antigen,
-                            cell_id=cell.id,
-                            rule_type=rule_type,
-                            paired_antigen=rule_details["paired_antigen"] if rule_details else None,
-                            patient_reaction=reaction.patient_rxn,
-                            cell_reaction=r.reaction_value,
-                            paired_reaction=rule_details["paired_reaction"] if rule_details else None
-                        )
-                        db_session.add(rule_out)
-                        
-                        # Check if we've met the required count for rule-out
-                        if track_rule_out_progress(r.antigen, rule_type, cell, db_session):
-                            ruled_out.add(r.antigen)
-                            if r.antigen not in ruled_out_mapping:
-                                ruled_out_mapping[r.antigen] = []
-                            ruled_out_mapping[r.antigen].append({
-                                "lot_number": cell.antigram.lot_number,
-                                "cell_number": cell.cell_number,
-                                "rule_type": rule_type
-                            })
-                    else:
-                        # Track for potential matches
-                        antigen_presence_map.setdefault(r.antigen, []).append({
-                            "cell_id": cell.id,
-                            "lot_number": cell.antigram.lot_number,
-                            "cell_number": cell.cell_number,
-                            "reaction_value": r.reaction_value,
-                            "patient_rxn": reaction.patient_rxn
-                        })
-
-            # Step 2: Process potential matches
-            for antigen, details in antigen_presence_map.items():
-                if antigen in ruled_out:
-                    continue
-
-                # Check for match pattern
-                valid_pattern = True
-                has_positive = False
-                has_negative = False
-
-                # First check if all positive antigen reactions match with positive patient reactions
-                positive_antigen_cells = [d for d in details if d["reaction_value"] == "+"]
-                for detail in positive_antigen_cells:
-                    if detail["patient_rxn"] != "+":
-                        valid_pattern = False
-                        break
-                    has_positive = True
-
-                # Then check if we have some negative reactions
-                negative_reactions = [d for d in details if d["patient_rxn"] == "0"]
-                if negative_reactions:
-                    has_negative = True
-
-                if valid_pattern and has_positive and has_negative:
-                    match_candidates.add(antigen)
-                else:
-                    still_to_rule_out.add(antigen)
-
-            # Step 3: Apply three-pos three-neg rule for match validation
-            valid_matches = set()
-            for antigen in match_candidates:
-                details = antigen_presence_map[antigen]
-                positives = sum(1 for d in details if d["patient_rxn"] == "+")
-                negatives = sum(1 for d in details if d["patient_rxn"] == "0")
-
-                if positives >= 2 and negatives >= 2:
-                    valid_matches.add(antigen)
-
-            # Commit any new rule-out records
-            db_session.commit()
-
-            # Final categorization cleanup
-            still_to_rule_out -= ruled_out
-            still_to_rule_out -= valid_matches
-
-            print("✅ antibody_identification completed successfully!")
-            return jsonify({
-                "ruled_out": list(ruled_out),
-                "ruled_out_details": ruled_out_mapping,
-                "still_to_rule_out": list(still_to_rule_out),
-                "match": list(valid_matches)
-            }), 200
-
-        except Exception as e:
-            db_session.rollback()
-            print(f"❌ Error in antibody_identification: {str(e)}")
-            return jsonify({"error": str(e)}), 500
-
-    def is_homozygous(antigen, cell_reactions, antigen_pairs):
-        """Determine if an antigen is homozygous based on paired antigen status."""
-        paired_antigen = antigen_pairs.get(antigen, None)
-        found_homozygous = False
-
-        if not isinstance(cell_reactions, list):  # ✅ Ensure cell_reactions is always a list
-            raise TypeError(f"Expected list for cell_reactions, but got {type(cell_reactions)}")
-
-        for reaction in cell_reactions:
-            if not isinstance(reaction, Reaction):  # ✅ Ensure we are iterating reactions
-                continue
-            
-            if reaction.antigen != antigen:
-                continue
-            
-            paired_reaction = next((r for r in cell_reactions if r.antigen == paired_antigen), None)
-
-            if paired_reaction:
-                # ✅ Homozygous if antigen is "+" and its pair is "0"
-                if reaction.reaction_value == "+" and paired_reaction.reaction_value == "0":
-                    found_homozygous = True
-                
-                # ❌ If both antigen and its pair are "+", neither is homozygous
-                if reaction.reaction_value == "+" and paired_reaction.reaction_value == "+":
-                    return False  
-
-        return found_homozygous
-
-    def process_rule_out(antigen, cell_reactions, patient_rxn, db_session):
-        """
-        Process rule-out logic for a single antigen, considering homozygous, heterozygous, and single antigen rules.
-        Returns (is_ruled_out, rule_out_type, rule_out_details)
-        """
-        # Skip processing if patient reaction is positive
-        if patient_rxn != "0":
-            return False, None, None
-        
-        # Get all rules for this antigen
-        rules = db_session.query(AntigenPair).filter(
-            ((AntigenPair.antigen1 == antigen) | (AntigenPair.antigen2 == antigen))
-        ).all()
-        
-        # If no rules exist for this antigen, check if it's present in the cell
-        if not rules:
-            antigen_reaction = next((r for r in cell_reactions if r.antigen == antigen), None)
-            if antigen_reaction and antigen_reaction.reaction_value == "+":
-                return True, "single", {
-                    "antigen": antigen,
-                    "paired_antigen": None,
-                    "antigen_reaction": antigen_reaction.reaction_value,
-                    "paired_reaction": None
-                }
-            return False, None, None
-
-        # First check for homozygous rules (they take precedence)
-        for rule in rules:
-            if rule.rule_type == 'homozygous':
-                paired_antigen = rule.antigen2 if rule.antigen1 == antigen else rule.antigen1
-                antigen_reaction = next((r for r in cell_reactions if r.antigen == antigen), None)
-                paired_reaction = next((r for r in cell_reactions if r.antigen == paired_antigen), None)
-                
-                if antigen_reaction and paired_reaction:
-                    # For homozygous rule-out, we need one positive and one negative
-                    if antigen_reaction.reaction_value == "+" and paired_reaction.reaction_value == "0":
-                        return True, "homozygous", {
-                            "antigen": antigen,
-                            "paired_antigen": paired_antigen,
-                            "antigen_reaction": antigen_reaction.reaction_value,
-                            "paired_reaction": paired_reaction.reaction_value
-                        }
-                    # If the paired antigen is positive and this one is negative, don't process further
-                    elif antigen_reaction.reaction_value == "0" and paired_reaction.reaction_value == "+":
-                        return False, None, None
-
-        # Then check for single antigen rules
-        for rule in rules:
-            if rule.rule_type == 'single':
-                antigen_reaction = next((r for r in cell_reactions if r.antigen == antigen), None)
-                if antigen_reaction and antigen_reaction.reaction_value == "+":
-                    return True, "single", {
-                        "antigen": antigen,
-                        "paired_antigen": None,
-                        "antigen_reaction": antigen_reaction.reaction_value,
-                        "paired_reaction": None
-                    }
-
-        # Finally check for heterozygous rules
-        for rule in rules:
-            if rule.rule_type == 'heterozygous':
-                paired_antigen = rule.antigen2 if rule.antigen1 == antigen else rule.antigen1
-                antigen_reaction = next((r for r in cell_reactions if r.antigen == antigen), None)
-                paired_reaction = next((r for r in cell_reactions if r.antigen == paired_antigen), None)
-                
-                if antigen_reaction and paired_reaction:
-                    if antigen_reaction.reaction_value == "+" and paired_reaction.reaction_value == "+":
-                        return True, "heterozygous", {
-                            "antigen": antigen,
-                            "paired_antigen": paired_antigen,
-                            "antigen_reaction": antigen_reaction.reaction_value,
-                            "paired_reaction": paired_reaction.reaction_value
-                        }
                     
-        return False, None, None
+                    # Update progress
+                    progress[antigen]["total_rule_outs"] = total_rule_outs
+                    progress[antigen]["is_complete"] = is_complete
+                    
+                    # If complete, add to ruled out set
+                    if is_complete:
+                        ruled_out.add(antigen)
+                        break
+            
+            # If not ruled out and has positive reactions, check if it meets potential match criteria
+            if antigen not in ruled_out and antigen in antigen_reactions:
+                # Count positive and negative reactions
+                positive_count = sum(1 for r in antigen_reactions[antigen] if r["patient_reaction"] == "+")
+                negative_count = sum(1 for r in antigen_reactions[antigen] if r["patient_reaction"] == "0")
+                
+                # Apply 2-pos 2-neg rule
+                if positive_count >= 2 and negative_count >= 2:
+                    potential_matches.add(antigen)
+        
+        return {
+            "ruled_out": sorted(list(ruled_out)),
+            "potential_matches": sorted(list(potential_matches)),
+            "progress": progress
+        }
 
-    def track_rule_out_progress(antigen, rule_type, cell, db_session):
-        """
-        Track progress towards ruling out an antigen based on the required count.
-        Returns True if the antigen has been fully ruled out.
-        """
-        # Get the rule configuration
-        pair = db_session.query(AntigenPair).filter(
-            ((AntigenPair.antigen1 == antigen) | (AntigenPair.antigen2 == antigen)) &
-            (AntigenPair.rule_type == rule_type)
-        ).first()
+    except Exception as e:
+        print(f"Error in antibody identification: {str(e)}")
+        return {
+            "ruled_out": [],
+            "potential_matches": [],
+            "progress": {}
+        }
+
+def process_rule_out(db_session, patient_reaction, antigen_name):
+    """Process rule-out for a specific antigen based on patient reaction."""
+    try:
+        # Get all rules for this antigen
+        rules = db_session.query(AntigenRule).filter_by(target_antigen=antigen_name).all()
         
-        if not pair:
+        for rule in rules:
+            rule_conditions = rule.conditions
+            
+            # Check if this is a composite rule
+            if rule.rule_type == 'composite':
+                # For composite rules, we need to check multiple conditions
+                conditions_met = 0
+                required_count = rule_conditions.get('required_count', 1)
+                
+                for condition in rule_conditions['conditions']:
+                    # Check if the condition is met
+                    if check_condition(db_session, patient_reaction, condition):
+                        conditions_met += 1
+                
+                # Check if we met the required number of conditions
+                if conditions_met >= required_count:
+                    # Mark this cell as ruling out the antigen
+                    mark_cell_as_ruling_out(db_session, patient_reaction.cell_id, antigen_name, rule.id)
+                    return True, {"rule_type": "composite", "conditions": rule_conditions}
+                    
+            else:  # Standard rule
+                # For standard rules, we check a single condition
+                condition = rule_conditions['conditions'][0]
+                if check_condition(db_session, patient_reaction, condition):
+                    # Mark this cell as ruling out the antigen
+                    mark_cell_as_ruling_out(db_session, patient_reaction.cell_id, antigen_name, rule.id)
+                    return True, {"rule_type": "standard", "conditions": rule_conditions}
+                    
+        return False, None
+        
+    except Exception as e:
+        print(f"Error processing rule: {str(e)}")
+        return False, None
+
+def check_condition(db_session, patient_reaction, condition):
+    """Check if a specific condition is met for a patient reaction."""
+    try:
+        # Get the cell's reactions
+        cell = db_session.query(Cell).get(patient_reaction.cell_id)
+        if not cell:
             return False
+            
+        # Check if patient reaction matches
+        if patient_reaction.patient_rxn != condition['patient_reaction']:
+            return False
+            
+        # Check if cell has the required antigen with correct reaction
+        cell_reaction = next((r for r in cell.reactions if r.antigen == condition['antigen']), None)
+        if not cell_reaction or cell_reaction.reaction_value != condition['cell_reaction']:
+            return False
+            
+        # Check paired conditions if they exist
+        if 'paired_conditions' in condition:
+            for paired_condition in condition['paired_conditions']:
+                paired_reaction = next((r for r in cell.reactions if r.antigen == paired_condition['antigen']), None)
+                if not paired_reaction or paired_reaction.reaction_value != paired_condition['cell_reaction']:
+                    return False
+                    
+        return True
         
-        # Count existing rule-outs
-        rule_out_count = db_session.query(AntigenRuleOut).filter(
-            AntigenRuleOut.antigen == antigen,
-            AntigenRuleOut.rule_type == rule_type
+    except Exception as e:
+        print(f"Error checking condition: {str(e)}")
+        return False
+
+def mark_cell_as_ruling_out(db_session, cell_id, antigen_name, rule_id):
+    """Mark a cell as ruling out a specific antigen."""
+    try:
+        # Update the patient reaction profile
+        profile = db_session.query(PatientReactionProfile).filter_by(cell_id=cell_id).first()
+        if profile:
+            profile.is_ruled_out = True
+            profile.antigen = antigen_name
+            db_session.commit()
+            
+    except Exception as e:
+        print(f"Error marking cell as ruling out: {str(e)}")
+        db_session.rollback()
+
+def track_rule_out_progress(antigen, rule_details, db_session):
+    """Track progress towards ruling out an antigen."""
+    try:
+        if not rule_details:
+            return False, 0
+            
+        # Count existing rule-outs for this antigen
+        existing_rule_outs = db_session.query(PatientReactionProfile).filter_by(
+            antigen=antigen,
+            is_ruled_out=True
         ).count()
         
-        return rule_out_count >= pair.required_count
-
-    def apply_three_pos_neg_rule(match_candidates, antigen_presence_map):
-        """Ensure valid matches meet the 3-pos 3-neg rule."""
-        valid_matches = set()
-
-        for antigen in match_candidates:
-            positives = sum(1 for d in antigen_presence_map[antigen] if d["patient_rxn"] == "+")
-            negatives = sum(1 for d in antigen_presence_map[antigen] if d["patient_rxn"] == "0")
-
-            if positives >= 2 and negatives >= 2:
-                valid_matches.add(antigen)
-
-        return valid_matches
-
-    def check_homozygous_rule_out(antigen, cell_reactions, antigen_pairs, db_session):
-        """
-        Check if an antigen can be ruled out based on homozygous expression.
-        Returns (is_ruled_out, rule_out_details)
-        """
-        pair = db_session.query(AntigenPair).filter(
-            ((AntigenPair.antigen1 == antigen) | (AntigenPair.antigen2 == antigen)) &
-            (AntigenPair.rule_type == 'homozygous')
-        ).first()
+        # Get the rule to check required count
+        rule = db_session.query(AntigenRule).filter_by(target_antigen=antigen).first()
+        if not rule:
+            return False, 0
+            
+        # Check if we've met the required count
+        is_complete = existing_rule_outs >= rule.required_count
+        return is_complete, existing_rule_outs
         
-        if not pair:
-            return False, None
-        
-        # Get the paired antigen
-        paired_antigen = pair.antigen2 if pair.antigen1 == antigen else pair.antigen1
-        
-        # Find homozygous expression
-        antigen_reaction = next((r for r in cell_reactions if r.antigen == antigen), None)
-        paired_reaction = next((r for r in cell_reactions if r.antigen == paired_antigen), None)
+    except Exception as e:
+        print(f"Error tracking rule out progress: {str(e)}")
+        return False, 0
+
+def check_homozygous_rule_out(antigen, cell_reactions, antigen_pairs, db_session):
+    """Check if an antigen can be ruled out based on homozygous expression."""
+    rules = db_session.query(AntigenRule).filter_by(
+        target_antigen=antigen,
+        rule_type='homozygous'
+    ).all()
+
+    if not rules:
+        return False, None
+    
+    for rule in rules:
+        conditions = rule.conditions
+        antigen_reaction = next((r for r in cell_reactions if r.antigen == conditions["antigen"]), None)
+        paired_reaction = next((r for r in cell_reactions if r.antigen == conditions["paired_antigen"]), None)
         
         if not antigen_reaction or not paired_reaction:
-            return False, None
+            continue
         
-        # Check for homozygous expression (one positive, one negative)
-        is_homozygous = (
-            (antigen_reaction.reaction_value == "+" and paired_reaction.reaction_value == "0") or
-            (antigen_reaction.reaction_value == "0" and paired_reaction.reaction_value == "+")
-        )
-        
-        if is_homozygous:
+        if (antigen_reaction.reaction_value == conditions["cell_reaction"] and 
+            paired_reaction.reaction_value == conditions["paired_reaction"]):
             return True, {
                 "antigen": antigen,
-                "paired_antigen": paired_antigen,
+                "paired_antigen": conditions["paired_antigen"],
                 "antigen_reaction": antigen_reaction.reaction_value,
-                "paired_reaction": paired_reaction.reaction_value
+                "paired_reaction": paired_reaction.reaction_value,
+                "rule_type": "homozygous"
             }
         
         return False, None
 
-    def check_heterozygous_rule_out(antigen, cell_reactions, antigen_pairs, db_session):
-        """
-        Check if an antigen can be ruled out based on heterozygous expression.
-        Returns (is_ruled_out, rule_out_details)
-        """
-        pair = db_session.query(AntigenPair).filter(
-            ((AntigenPair.antigen1 == antigen) | (AntigenPair.antigen2 == antigen)) &
-            (AntigenPair.rule_type == 'heterozygous')
-        ).first()
-        
-        if not pair:
-            return False, None
-        
-        # Get the paired antigen
-        paired_antigen = pair.antigen2 if pair.antigen1 == antigen else pair.antigen1
-        
-        # Find heterozygous expression
-        antigen_reaction = next((r for r in cell_reactions if r.antigen == antigen), None)
-        paired_reaction = next((r for r in cell_reactions if r.antigen == paired_antigen), None)
+def check_heterozygous_rule_out(antigen, cell_reactions, antigen_pairs, db_session):
+    """Check if an antigen can be ruled out based on heterozygous expression."""
+    rules = db_session.query(AntigenRule).filter_by(
+        target_antigen=antigen,
+        rule_type='heterozygous'
+    ).all()
+
+    if not rules:
+        return False, None
+    
+    for rule in rules:
+        conditions = rule.conditions
+        antigen_reaction = next((r for r in cell_reactions if r.antigen == conditions["antigen"]), None)
+        paired_reaction = next((r for r in cell_reactions if r.antigen == conditions["paired_antigen"]), None)
         
         if not antigen_reaction or not paired_reaction:
-            return False, None
+            continue
         
-        # Check for heterozygous expression (both positive)
-        is_heterozygous = (antigen_reaction.reaction_value == "+" and paired_reaction.reaction_value == "+")
-        
-        if is_heterozygous:
+        if (antigen_reaction.reaction_value == conditions["cell_reaction"] and 
+            paired_reaction.reaction_value == conditions["paired_reaction"]):
             return True, {
                 "antigen": antigen,
-                "paired_antigen": paired_antigen,
+                "paired_antigen": conditions["paired_antigen"],
                 "antigen_reaction": antigen_reaction.reaction_value,
-                "paired_reaction": paired_reaction.reaction_value
+                "paired_reaction": paired_reaction.reaction_value,
+                "rule_type": "heterozygous"
             }
         
         return False, None
