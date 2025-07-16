@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BB_App</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    {% block head %}{% endblock %}
 </head>
 <body>
     <nav>
         <ul>
             <li><a href="/">Home</a></li>
+            <li><a href="/template_management">Template Management</a></li>
             <li><a href="/add_antigram">Add Antigram</a></li>
             <li><a href="/cell_finder">Cell Finder</a></li>
             <li><a href="/antibody_id">Antibody ID</a></li>

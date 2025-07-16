@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .container {
+        max-width: 1200px;
+    }
+    .form-text {
+        font-size: 0.875em;
+        color: #6c757d;
+    }
+    .alert {
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Template Management</h2>
+    
+    <!-- Template Creation Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Create New Template</h4>
+        </div>
+        <div class="card-body">
+            <form id="templateForm">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="templateName" class="form-label">Template Name</label>
+                            <input type="text" class="form-control" id="templateName" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="cellCount" class="form-label">Cell Count</label>
+                            <input type="number" class="form-control" id="cellCount" min="1" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="cellRangeStart" class="form-label">Cell Range Start</label>
+                            <input type="number" class="form-control" id="cellRangeStart" min="1" placeholder="e.g., 12">
+                            <div class="form-text">Optional: Starting cell number</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="cellRangeEnd" class="form-label">Cell Range End</label>
+                            <input type="number" class="form-control" id="cellRangeEnd" min="1" placeholder="e.g., 22">
+                            <div class="form-text">Optional: Ending cell number</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="antigenOrder" class="form-label">Antigen Order</label>
+                    <textarea class="form-control" id="antigenOrder" rows="3" placeholder="Enter antigens separated by commas (e.g., D, C, E, c, e, f, Cw, V, K, k, Kpa, Kpb, Jsa, Jsb, Fya, Fyb, Jka, Jkb, Xga, Lea, Leb, S, s, M, N, P1, Lua, Lub)" required></textarea>
+                    <div class="form-text">Enter antigens in the order they should appear in the template</div>
+                </div>
+                
+                <div class="alert alert-info" id="rangeValidation" style="display: none;">
+                    <strong>Range Validation:</strong> <span id="rangeValidationText"></span>
+                </div>
+                
+                <div class="alert alert-danger" id="rangeError" style="display: none;">
+                    <strong>Error:</strong> <span id="rangeErrorText"></span>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">Create Template</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetTemplateForm()">Reset Form</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Template List -->
+    <div class="card">
+        <div class="card-header">
+            <h4>Existing Templates</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cell Count</th>
+                            <th>Cell Range</th>
+                            <th>Antigens</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="templateTableBody">
+                        <!-- Templates will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/template_management.js"></script>
+{% endblock %} 

@@ -113,24 +113,46 @@ button:hover {
   white-space: nowrap;
 }
 
-#antigram-table {
+/* Special styling for antigram reaction tables to be wider */
+.reactions-section .table-container {
+  max-width: none;
   width: 100%;
+  overflow-x: visible;
+}
+
+#antigram-table {
+  width: auto;
+  min-width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
+  border-spacing: 0;
 }
 
 #antigram-table th,
 #antigram-table td {
-  padding: 10px;
+  padding: 8px 4px;
   text-align: center;
   border: 1px solid #ddd;
-  min-width: 50px; 
+  min-width: 50px;
+  width: 50px;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+  white-space: nowrap;
 }
 
 /* Ensure Antigen Headers Shift Right */
 #antigram-header tr {
   background-color: #007bff;
   color: rgb(10, 0, 0);
+}
+
+/* Fix cell number column alignment */
+#antigram-table td:first-child,
+#antigram-table th:first-child {
+  width: 60px;
+  min-width: 60px;
+  text-align: center;
+  font-weight: bold;
 }
 
 #antigram-header th {
@@ -144,19 +166,22 @@ button:hover {
 
 /* Fix Input Fields */
 .reaction-input {
-  width: 50px !important; /* Match the results table column width */
-  height: 30px; 
+  width: 30px !important; /* Compact width for single character input */
+  height: 25px; 
   text-align: center;
-  border: 2px solid #000 !important; 
-  border-radius: 5px;
-  padding: 2px;
-  font-size: 16px;
+  border: 2px solid #2c2c2c41 !important; 
+  border-radius: 3px;
+  padding: 1px;
+  font-size: 12px;
   font-weight: bold;
   color: black !important; 
   background-color: white !important; 
   caret-color: black !important;
   opacity: 1 !important;
   visibility: visible !important;
+  margin: 0 auto !important; /* Center the input in the cell */
+  box-sizing: border-box !important;
+  display: block !important;
 }
 
 
@@ -245,4 +270,342 @@ button:hover {
 
 #confirm-template-btn:hover {
   background-color: #0056b3;
+}
+
+/* New Antigram Management Page Styles */
+.main-container {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header-section h2 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.create-section, .view-section {
+  background-color: #f9f9f9;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.reactions-section {
+  background-color: #f9f9f9;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.create-section h3, .view-section h3, .reactions-section h3 {
+  color: #333;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 10px;
+}
+
+.form-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.form-group input, .form-group select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.search-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.search-container input {
+  flex: 1;
+  max-width: 300px;
+}
+
+/* Button Styles */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  transition: background-color 0.3s;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #1e7e34;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #545b62;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.btn-outline:hover {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* Table Styles */
+#antigrams-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+#antigrams-table th,
+#antigrams-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+#antigrams-table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+  color: #333;
+}
+
+#antigrams-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+#antigrams-table tr:hover {
+  background-color: #e9ecef;
+}
+
+.no-data {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  margin: 2% auto;
+  padding: 0;
+  border-radius: 8px;
+  width: 99%;
+  max-width: 1800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.modal-body .table-container {
+  max-width: none;
+  width: 100%;
+  overflow-x: visible;
+}
+
+/* Edit modal form inputs - make them smaller */
+.modal-body .form-group input {
+  width: 200px;
+  max-width: 200px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.modal-footer {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Edit table styles */
+#edit-antigram-table {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  table-layout: auto;
+  border-spacing: 0;
+}
+
+#edit-antigram-table th,
+#edit-antigram-table td {
+  padding: 4px 2px;
+  text-align: center;
+  border: 1px solid #ddd;
+  min-width: 45px;
+  width: 45px;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+  white-space: nowrap;
+}
+
+#edit-antigram-table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+/* Fix cell number column alignment for edit table */
+#edit-antigram-table td:first-child,
+#edit-antigram-table th:first-child {
+  width: 55px;
+  min-width: 55px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.edit-reaction-input {
+  width: 25px !important;
+  height: 20px;
+  text-align: center;
+  border: 2px solid #000 !important;
+  border-radius: 3px;
+  padding: 1px;
+  font-size: 12px;
+  font-weight: bold;
+  color: black !important;
+  background-color: white !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+  display: block !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .form-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .search-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-container input {
+    max-width: none;
+  }
+  
+  .modal-content {
+    width: 95%;
+    margin: 10% auto;
+  }
+  
+  .table-container {
+    overflow-x: auto;
+  }
 }

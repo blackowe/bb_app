@@ -377,8 +377,8 @@ document.addEventListener("DOMContentLoaded", () => {
         abidResultsContainer.innerHTML = `
             ${styles}
             ${createRowDisplay(results.ruled_out, "Ruled Out (RO)")}
-            ${createRowDisplay(results.still_to_rule_out, "Still to Rule Out (STRO)")}
-            ${createRowDisplay(results.match, "100% Match")}
+            ${createRowDisplay(results.stro, "Still to Rule Out (STRO)")}
+            ${createRowDisplay(results.matches, "100% Match")}
             <div class="rule-out-details">
                 <h3>Ruled Out Details</h3>
                 ${singleRuleOuts}

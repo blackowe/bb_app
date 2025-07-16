@@ -2,29 +2,40 @@
 
 {% block content %}
 <div class="main-container">
-    <!-- Left Panel: Antigram Template Selection -->
-    <div class="left-panel">
-        <div class="antigram-selection-box">
-            <h3>Select Antigram Template</h3>
-            <label for="templateSelect">Choose Antigram Template:</label>
-            <select id="templateSelect"></select>
+    <div class="header-section">
+        <h2>Antigram Management</h2>
+        <p>Create, view, and edit antigrams using templates</p>
+    </div>
 
-            <button id="confirm-template-btn">Confirm Selection</button>
-        </div>
+    <!-- Create New Antigram Section -->
+    <div class="create-section">
+        <h3>Create New Antigram</h3>
+        <div class="form-container">
+            <!-- Template Selection -->
+            <div class="form-group">
+                <label for="templateSelect">Select Template:</label>
+                <select id="templateSelect" required>
+                    <option value="">-- Select a Template --</option>
+                </select>
+            </div>
 
-        <!-- Lot Number & Expiration Date Entry (Hidden Until Template is Selected) -->
-        <div class="lot-expiration-box" style="display: none;">
-            <h3>Antigram Details</h3>
-            <label for="lotNumber">Lot Number:</label>
-            <input type="text" id="lotNumber" required />
+            <!-- Antigram Details -->
+            <div class="form-group">
+                <label for="lotNumber">Lot Number:</label>
+                <input type="text" id="lotNumber" required />
+            </div>
 
-            <label for="expirationDate">Expiration Date:</label>
-            <input type="date" id="expirationDate" required />
+            <div class="form-group">
+                <label for="expirationDate">Expiration Date:</label>
+                <input type="date" id="expirationDate" required />
+            </div>
+
+            <button id="create-antigram-btn" class="btn btn-primary">Create Antigram</button>
         </div>
     </div>
 
-    <!-- Right Panel: Antigram Cell Reactions -->
-    <div class="right-panel">
+    <!-- Antigram Reactions Table (Hidden until template selected) -->
+    <div id="reactions-section" class="reactions-section" style="display: none;">
         <h3>Antigram Cell Reactions</h3>
         <div class="table-container">
             <table id="antigram-table">
@@ -32,8 +43,62 @@
                 <tbody id="antigram-body"></tbody>
             </table>
         </div>
+        <button id="save-antigram-btn" class="btn btn-success" style="display: none;" disabled>Save Antigram</button>
+    </div>
 
-        <button id="save-antigram-btn" style="display: none;" disabled>Save Antigram</button>
+    <!-- View/Edit Antigrams Section -->
+    <div class="view-section">
+        <h3>Existing Antigrams</h3>
+        <div class="search-container">
+            <input type="text" id="searchAntigrams" placeholder="Search by lot number..." />
+            <button id="searchBtn" class="btn btn-secondary">Search</button>
+            <button id="clearSearchBtn" class="btn btn-outline">Clear</button>
+        </div>
+        
+        <div class="table-container">
+            <table id="antigrams-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Template Name</th>
+                        <th>Lot Number</th>
+                        <th>Expiration Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="antigrams-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Antigram Modal -->
+<div id="editModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Antigram</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="editLotNumber">Lot Number:</label>
+                <input type="text" id="editLotNumber" required />
+            </div>
+            <div class="form-group">
+                <label for="editExpirationDate">Expiration Date:</label>
+                <input type="date" id="editExpirationDate" required />
+            </div>
+            <div class="table-container">
+                <table id="edit-antigram-table">
+                    <thead id="edit-antigram-header"></thead>
+                    <tbody id="edit-antigram-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="saveEditBtn" class="btn btn-success">Save Changes</button>
+            <button id="cancelEditBtn" class="btn btn-secondary">Cancel</button>
+        </div>
     </div>
 </div>
 

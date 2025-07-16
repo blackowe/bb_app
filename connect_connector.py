@@ -32,10 +32,11 @@ def connect_with_connector():
     engine = create_engine(
         "mysql+pymysql://",
         creator=getconn,
-        pool_size=5,
-        max_overflow=2,
-        pool_timeout=30,
-        pool_recycle=1800,
+        pool_size=10,  # Increased pool size
+        max_overflow=5,  # Increased overflow
+        pool_timeout=60,  # Increased timeout
+        pool_recycle=3600,  # Increased recycle time
+        pool_pre_ping=True,  # Enable connection health checks
         echo=False
     )
     print("Using Google Cloud SQL database")
