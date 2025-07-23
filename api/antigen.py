@@ -203,6 +203,39 @@ def register_antigen_routes(app, db_session):
             logger.error(f"Error getting antigen pairs: {e}")
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/api/antigens/valid', methods=['GET'])
+    def get_valid_antigens():
+        """Get all antigens that exist in the Antigen table and have at least one enabled antibody rule."""
+        try:
+            # Get all antigens
+            antigens = db_session.query(Antigen).all()
+            antigen_names = {antigen.name: antigen for antigen in antigens}
+
+            # Get all enabled antibody rules
+            rules = db_session.query(AntibodyRule).filter_by(enabled=True).all()
+            antigens_with_rules = set(rule.target_antigen for rule in rules)
+
+            # Only include antigens that have at least one enabled rule
+            valid_antigens = [antigen_names[name] for name in antigens_with_rules if name in antigen_names]
+
+            # Return as list of dicts with name and system
+            return jsonify([
+                {"name": antigen.name, "system": antigen.system} for antigen in valid_antigens
+            ]), 200
+        except Exception as e:
+            logger.error(f"Error getting valid antigens: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/antigens/default-order', methods=['GET'])
+    def get_default_antigen_order():
+        """Return the default antigen order (Panocell order) as a JSON array."""
+        try:
+            from default_rules import get_default_antigen_order
+            return jsonify(get_default_antigen_order()), 200
+        except Exception as e:
+            logger.error(f"Error getting default antigen order: {e}")
+            return jsonify({"error": str(e)}), 500
+
     # Antibody Rules Management Routes
     @app.route('/api/antibody-rules', methods=['GET'])
     def get_antibody_rules():

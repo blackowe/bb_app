@@ -1,5 +1,14 @@
 import json
 
+DEFAULT_ANTIGEN_ORDER = [
+    "D", "C", "c", "E", "e", "f", "Cw", "V", "K", "k", "Kpa", "Kpb", "Jsa", "Jsb",
+    "Fya", "Fyb", "Jka", "Jkb", "Xga", "Lea", "Leb", "S", "s", "M", "N", "P", "Lua", "Lub"
+]
+
+def get_default_antigen_order():
+    """Return the default antigen order used for templates (Panocell order)."""
+    return list(DEFAULT_ANTIGEN_ORDER)
+
 def get_default_rules():
     """Return the default antibody rules based on RULE_CREATION_GUIDE.md."""
     return [

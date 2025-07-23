@@ -41,6 +41,18 @@ def register_antigram_routes(app, db_session):
                 if cell_count != expected_count:
                     return jsonify({"error": f"cell_count ({cell_count}) must match cell_range ({expected_count} cells from {cell_range[0]} to {cell_range[1]})"}), 400
 
+            # --- VALIDATION: Only allow antigens that exist in Antigen table AND have at least one enabled antibody rule ---
+            from models import Antigen, AntibodyRule
+            antigens = {a.name for a in db_session.query(Antigen).all()}
+            rules = db_session.query(AntibodyRule).filter_by(enabled=True).all()
+            antigens_with_rules = {rule.target_antigen for rule in rules}
+            valid_antigens = antigens & antigens_with_rules
+            invalid_antigens = [ag for ag in antigen_order if ag not in valid_antigens]
+            if invalid_antigens:
+                return jsonify({
+                    "error": f"The following antigens are not valid (must exist in Antigen table and have at least one enabled antibody rule): {', '.join(invalid_antigens)}"
+                }), 400
+
             # Generate unique template ID
             template_id = int(datetime.now().timestamp() * 1000)
             
@@ -69,6 +81,52 @@ def register_antigram_routes(app, db_session):
         if not template:
             return jsonify({"error": "Not found"}), 404
         return jsonify(template), 200
+
+    @app.route("/api/templates/<int:template_id>", methods=["PUT"])
+    def update_template(template_id):
+        """Update an existing antigram template."""
+        try:
+            data = request.json
+            name = data.get("name")
+            antigen_order = data.get("antigen_order")
+            cell_count = data.get("cell_count")
+            cell_range = data.get("cell_range")
+            
+            if not name or not antigen_order or not cell_count:
+                return jsonify({"error": "Missing name, antigen_order, or cell_count"}), 400
+
+            # Validate cell_range if provided
+            if cell_range:
+                if not isinstance(cell_range, list) or len(cell_range) != 2:
+                    return jsonify({"error": "cell_range must be a list with exactly 2 elements [start, end]"}), 400
+                if cell_range[0] >= cell_range[1]:
+                    return jsonify({"error": "cell_range start must be less than end"}), 400
+                expected_count = cell_range[1] - cell_range[0] + 1
+                if cell_count != expected_count:
+                    return jsonify({"error": f"cell_count ({cell_count}) must match cell_range ({expected_count} cells from {cell_range[0]} to {cell_range[1]})"}), 400
+
+            # --- VALIDATION: Only allow antigens that exist in Antigen table AND have at least one enabled antibody rule ---
+            from models import Antigen, AntibodyRule
+            antigens = {a.name for a in db_session.query(Antigen).all()}
+            rules = db_session.query(AntibodyRule).filter_by(enabled=True).all()
+            antigens_with_rules = {rule.target_antigen for rule in rules}
+            valid_antigens = antigens & antigens_with_rules
+            invalid_antigens = [ag for ag in antigen_order if ag not in valid_antigens]
+            if invalid_antigens:
+                return jsonify({
+                    "error": f"The following antigens are not valid (must exist in Antigen table and have at least one enabled antibody rule): {', '.join(invalid_antigens)}"
+                }), 400
+
+            # Update the template
+            template = template_manager.get_template(template_id)
+            if not template:
+                return jsonify({"error": "Not found"}), 404
+            template_manager.add_template(template_id, name, antigen_order, cell_count, cell_range)
+            template_manager.commit_changes()
+            return jsonify({"message": "Template updated", "template_id": template_id}), 200
+        except Exception as e:
+            logger.error(f"Error updating template {template_id}: {e}")
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/templates/<int:template_id>", methods=["DELETE"])
     def delete_template(template_id):

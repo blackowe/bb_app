@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
     loadTemplates();
     setupFormValidation();
+    loadValidAntigensAndRenderDnd();
 });
 
 function setupFormValidation() {
@@ -206,4 +207,240 @@ function resetTemplateForm() {
     document.getElementById('templateForm').reset();
     document.getElementById('rangeValidation').style.display = 'none';
     document.getElementById('rangeError').style.display = 'none';
+    // Reset antigen order to default (Panocell) order
+    if (Array.isArray(panocellOrder) && panocellOrder.length > 0) {
+        let used = new Set();
+        antigenOrder = [];
+        panocellOrder.forEach(ag => {
+            const agObj = validAntigens.find(a => a.name === ag);
+            if (agObj && !used.has(ag)) {
+                antigenOrder.push(ag);
+                used.add(ag);
+            }
+        });
+        // Add any remaining valid antigens not in Panocell order, grouped by system
+        Object.keys(systemGroups).forEach(sys => {
+            systemGroups[sys].forEach(ag => {
+                if (!used.has(ag)) {
+                    antigenOrder.push(ag);
+                    used.add(ag);
+                }
+            });
+        });
+        renderAntigenOrderTable();
+        setupSortableAntigenOrder();
+    }
 } 
+
+let validAntigens = [];
+let antigenOrder = [];
+let systemGroups = {};
+let bypassSystemSplit = false;
+let panocellOrder = [];
+
+function loadValidAntigensAndRenderDnd() {
+    fetch('/api/antigens/valid')
+        .then(response => response.json())
+        .then(data => {
+            validAntigens = data;
+            // Group by system
+            systemGroups = {};
+            data.forEach(ag => {
+                if (!systemGroups[ag.system]) systemGroups[ag.system] = [];
+                systemGroups[ag.system].push(ag.name);
+            });
+            // Fetch the default antigen order from the backend
+            fetch('/api/antigens/default-order')
+                .then(resp => resp.json())
+                .then(defaultOrder => {
+                    panocellOrder = Array.isArray(defaultOrder) ? defaultOrder : [];
+                    // Build default antigen order: group by system, keep Panocell order, only valid antigens
+                    antigenOrder = [];
+                    let used = new Set();
+                    panocellOrder.forEach(ag => {
+                        const agObj = data.find(a => a.name === ag);
+                        if (agObj && !used.has(ag)) {
+                            antigenOrder.push(ag);
+                            used.add(ag);
+                        }
+                    });
+                    // Add any remaining valid antigens not in Panocell order, grouped by system
+                    Object.keys(systemGroups).forEach(sys => {
+                        systemGroups[sys].forEach(ag => {
+                            if (!used.has(ag)) {
+                                antigenOrder.push(ag);
+                                used.add(ag);
+                            }
+                        });
+                    });
+                    renderAntigenOrderTable();
+                    setupSortableAntigenOrder();
+                })
+                .catch(() => {
+                    // Fallback: just use valid antigens in original order
+                    antigenOrder = data.map(a => a.name);
+                    renderAntigenOrderTable();
+                    setupSortableAntigenOrder();
+                });
+        });
+}
+
+function renderAntigenOrderTable() {
+    const systemHeaderRow = document.getElementById('system-header-row');
+    const antigenHeaderRow = document.getElementById('antigen-header-row');
+    let antigenDeleteRow = document.getElementById('antigen-delete-row');
+    if (!antigenDeleteRow) {
+        antigenDeleteRow = document.createElement('tr');
+        antigenDeleteRow.id = 'antigen-delete-row';
+        antigenHeaderRow.parentNode.appendChild(antigenDeleteRow);
+    }
+    systemHeaderRow.innerHTML = '';
+    antigenHeaderRow.innerHTML = '';
+    antigenDeleteRow.innerHTML = '';
+    // Build system row with correct colspan
+    let i = 0;
+    while (i < antigenOrder.length) {
+        const agName = antigenOrder[i];
+        const ag = validAntigens.find(a => a.name === agName);
+        if (!ag) { i++; continue; }
+        const sys = ag.system;
+        let span = 1;
+        for (let j = i + 1; j < antigenOrder.length; j++) {
+            const nextAg = validAntigens.find(a => a.name === antigenOrder[j]);
+            if (nextAg && nextAg.system === sys) span++;
+            else break;
+        }
+        const th = document.createElement('th');
+        th.colSpan = span;
+        th.className = 'antigen-system-header';
+        th.textContent = sys;
+        systemHeaderRow.appendChild(th);
+        i += span;
+    }
+    // Build antigen row (draggable columns)
+    antigenOrder.forEach((agName, idx) => {
+        const th = document.createElement('th');
+        th.className = 'antigen-dnd-th';
+        th.textContent = agName;
+        th.dataset.idx = idx;
+        th.dataset.antigen = agName;
+        th.style.cursor = 'grab';
+        antigenHeaderRow.appendChild(th);
+        // Delete button row
+        const td = document.createElement('td');
+        td.style.textAlign = 'center';
+        td.style.padding = '0';
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-outline-danger antigen-delete-btn';
+        btn.style.margin = '2px 0 2px 0';
+        btn.title = 'Remove antigen';
+        btn.innerHTML = '&times;';
+        btn.onclick = function() {
+            antigenOrder.splice(idx, 1);
+            renderAntigenOrderTable();
+            setupSortableAntigenOrder();
+        };
+        td.appendChild(btn);
+        antigenDeleteRow.appendChild(td);
+    });
+    updateAntigenOrderInput();
+}
+
+function setupSortableAntigenOrder() {
+    const antigenHeaderRow = document.getElementById('antigen-header-row');
+    if (!antigenHeaderRow) return;
+    if (antigenHeaderRow._sortable) return; // Prevent double init
+    antigenHeaderRow._sortable = true;
+    Sortable.create(antigenHeaderRow, {
+        animation: 150,
+        direction: 'horizontal',
+        ghostClass: 'antigen-dnd-ghost',
+        chosenClass: 'antigen-dnd-chosen',
+        dragClass: 'antigen-dnd-drag',
+        onStart: function (evt) {
+            evt.item.classList.add('antigen-dnd-grabbed');
+        },
+        onEnd: function (evt) {
+            // Update antigenOrder based on new th order
+            const newOrder = [];
+            antigenHeaderRow.querySelectorAll('th').forEach(th => {
+                newOrder.push(th.textContent);
+            });
+            // Check for system split
+            const prevOrder = [...antigenOrder];
+            antigenOrder = newOrder;
+            if (!bypassSystemSplit && isSystemSplit()) {
+                showSystemSplitModal(() => {
+                    bypassSystemSplit = true;
+                    renderAntigenOrderTable();
+                    setupSortableAntigenOrder();
+                }, () => {
+                    // Undo move
+                    antigenOrder = prevOrder;
+                    renderAntigenOrderTable();
+                    setupSortableAntigenOrder();
+                });
+                return;
+            }
+            renderAntigenOrderTable();
+            setupSortableAntigenOrder();
+        }
+    });
+}
+
+document.getElementById('confirmSystemSplit').addEventListener('click', function() {
+    bypassSystemSplit = true;
+    const modal = bootstrap.Modal.getInstance(document.getElementById('systemSplitModal'));
+    modal.hide();
+    renderAntigenOrderTable();
+    setupSortableAntigenOrder();
+});
+
+function showSystemSplitModal(onConfirm, onCancel) {
+    const modalEl = document.getElementById('systemSplitModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    // Confirm button
+    const confirmBtn = document.getElementById('confirmSystemSplit');
+    const cancelBtn = modalEl.querySelector('.btn-secondary');
+    function cleanup() {
+        confirmBtn.removeEventListener('click', confirmHandler);
+        cancelBtn.removeEventListener('click', cancelHandler);
+    }
+    function confirmHandler() { cleanup(); onConfirm(); }
+    function cancelHandler() { cleanup(); onCancel(); }
+    confirmBtn.addEventListener('click', confirmHandler);
+    cancelBtn.addEventListener('click', cancelHandler);
+}
+
+function isSystemSplit() {
+    // For each system, check if its antigens are contiguous in antigenOrder
+    for (const sys in systemGroups) {
+        const ags = systemGroups[sys];
+        const idxs = ags.map(ag => antigenOrder.indexOf(ag)).filter(i => i !== -1).sort((a, b) => a - b);
+        if (idxs.length > 1) {
+            for (let i = 1; i < idxs.length; i++) {
+                if (idxs[i] !== idxs[i - 1] + 1) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function updateAntigenOrderInput() {
+    document.getElementById('antigenOrder').value = antigenOrder.join(',');
+} 
+
+// Add styles for highlighting and hand cursor
+(function() {
+    const style = document.createElement('style');
+    style.innerHTML = `
+    .antigen-dnd-th { cursor: grab; user-select: none; transition: border 0.2s; }
+    .antigen-dnd-th.antigen-dnd-grabbed, .antigen-dnd-th.antigen-dnd-chosen {
+        border: 2px solid #007bff !important;
+        background: #eaf4ff;
+    }
+    .antigen-delete-btn { font-size: 0.9em; line-height: 1; padding: 0 6px; }
+    `;
+    document.head.appendChild(style);
+})(); 

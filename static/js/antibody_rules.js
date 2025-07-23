@@ -506,5 +506,10 @@ function initializeDefaultRules() {
 // Expose modal and form functions to global scope for button handlers
 window.openRuleModal = openRuleModal;
 window.resetForm = resetForm;
-window.submitRuleForm = submitRuleForm;
-window.editRule = editRule; 
+window.editRule = editRule;
+
+// Define submitRuleForm globally to fix missing reference error
+function submitRuleForm() {
+    document.getElementById('antibodyRuleForm').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
+}
+window.submitRuleForm = submitRuleForm; 
