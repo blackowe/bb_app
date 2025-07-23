@@ -1,0 +1,301 @@
+# Cursor Rules for Blood Bank Antibody Identification System
+
+## 🎯 Project Overview
+This is a Flask-based blood bank antibody identification system that uses pandas DataFrames for efficient matrix-based data management. The system handles antigram data, antibody identification, cell finding, and antigen management through a RESTful API.
+
+## 🏗️ Architecture & Technology Stack
+- **Backend**: Flask 3.0.0 with SQLAlchemy 2.0.23
+- **Data Management**: Pandas 2.1.4 for matrix operations
+- **Database**: Cloud SQL with cloud-sql-python-connector
+- **Deployment**: Gunicorn for production
+- **Frontend**: HTML templates with vanilla JavaScript
+- **Data Storage**: Matrix-based storage using pandas DataFrames
+
+## 📁 Project Structure Guidelines
+```
+app/
+├── api/                          # API routes (4 consolidated files)
+│   ├── antigen_routes.py        # Antigen and antigen rules management
+│   ├── antigram_routes.py       # Antigram CRUD operations
+│   ├── antibody_routes.py       # Antibody identification and patient reactions
+│   └── utility_routes.py        # Cell finder and utility endpoints
+├── core/                        # Core business logic
+│   ├── pandas_models.py         # Pandas-based data managers
+│   └── antibody_rule_evaluator.py  # Antibody identification engine
+├── utils/                       # Utility functions
+├── templates/                   # HTML templates
+├── static/                      # CSS, JS, and static assets
+├── migrations/                  # Database migrations
+└── main.py                      # Application entry point
+```
+
+## 💻 Coding Standards & Best Practices
+
+### Python Code Style
+- Follow PEP 8 conventions
+- Use type hints where appropriate
+- Implement comprehensive error handling
+- Add logging for debugging and monitoring
+- Use docstrings for functions and classes
+- Prefer pandas DataFrame operations over SQL joins for data manipulation
+
+### Flask Application Patterns
+- Use Blueprint-based route organization
+- Implement proper HTTP status codes
+- Return consistent JSON response structures
+- Handle CORS appropriately
+- Use SQLAlchemy for database operations
+- Implement proper session management
+
+### Data Management
+- Use pandas DataFrames for matrix operations
+- Implement efficient MultiIndex structures for patient reactions
+- Ensure data persistence across server restarts
+- Use database migrations for schema changes
+- Implement proper data validation
+
+### API Design
+- RESTful endpoint design
+- Consistent JSON response format
+- Proper HTTP methods (GET, POST, PUT, DELETE)
+- Input validation and sanitization
+- Error handling with meaningful messages
+
+## 🔧 Development Workflow
+
+### When Adding New Features
+1. **API Routes**: Add to appropriate route file in `/api/` directory
+2. **Business Logic**: Implement in `/core/` directory
+3. **Database Changes**: Create migration files
+4. **Frontend**: Update templates and static files
+5. **Testing**: Test thoroughly before deployment
+
+### When Modifying Existing Code
+1. **Preserve Functionality**: Ensure backward compatibility
+2. **Update Documentation**: Keep README and API docs current
+3. **Test Changes**: Verify all affected endpoints work correctly
+4. **Performance**: Consider impact on matrix operations
+
+### Database Operations
+1. **Use Migrations**: Always create migration files for schema changes
+2. **Data Integrity**: Ensure foreign key relationships are maintained
+3. **Backup**: Consider data backup before major changes
+4. **Testing**: Test migrations on development data first
+
+## 🎯 Key Business Logic Areas
+
+### Antibody Identification
+- Matrix-based pattern matching using pandas
+- Efficient patient reaction storage with MultiIndex
+- Rule-based antibody evaluation
+- Cell finding across multiple antigrams
+
+### Antigram Management
+- CRUD operations for antigram data
+- Matrix storage and retrieval
+- Metadata management
+- Data validation and integrity
+
+### Antigen Management
+- Antigen CRUD operations
+- Rule-based antigen relationships
+- Default antigen initialization
+- Pattern matching for cell finding
+
+## 🚀 Performance Considerations
+
+### Matrix Operations
+- Use pandas DataFrame operations for pattern matching
+- Implement efficient indexing for patient reactions
+- Optimize memory usage for large datasets
+- Consider caching for frequently accessed data
+
+### Database Optimization
+- Use appropriate indexes for query performance
+- Minimize complex joins in favor of pandas operations
+- Implement connection pooling
+- Monitor query performance
+
+### API Performance
+- Implement response caching where appropriate
+- Use pagination for large result sets
+- Optimize JSON serialization
+- Monitor response times
+
+## 🛡️ Security & Error Handling
+
+### Input Validation
+- Validate all user inputs
+- Sanitize data before database operations
+- Implement proper error messages
+- Use appropriate HTTP status codes
+
+### Error Handling
+- Catch and handle exceptions gracefully
+- Log errors for debugging
+- Return meaningful error messages to clients
+- Implement proper rollback for failed operations
+
+### Security
+- Validate file uploads
+- Implement proper CORS policies
+- Sanitize user inputs
+- Use secure database connections
+
+## 📝 Documentation Standards
+
+### Code Documentation
+- Use docstrings for all functions and classes
+- Include parameter types and return values
+- Document complex business logic
+- Add inline comments for non-obvious code
+
+### API Documentation
+- Document all endpoints with examples
+- Include request/response schemas
+- Document error codes and messages
+- Keep README updated with changes
+
+### Database Documentation
+- Document schema changes in migrations
+- Include data model relationships
+- Document any complex queries
+- Maintain data dictionary
+
+## 🔄 Testing Strategy
+
+### Unit Testing
+- Test individual functions and methods
+- Mock external dependencies
+- Test edge cases and error conditions
+- Ensure good test coverage
+
+### Integration Testing
+- Test API endpoints end-to-end
+- Test database operations
+- Test matrix operations with real data
+- Verify data persistence
+
+### Performance Testing
+- Test matrix operations with large datasets
+- Monitor memory usage
+- Test API response times
+- Verify database query performance
+
+## 🎨 Frontend Guidelines
+
+### HTML Templates
+- Use consistent template structure
+- Implement proper form validation
+- Use semantic HTML elements
+- Ensure accessibility compliance
+
+### JavaScript
+- Use vanilla JavaScript (no frameworks)
+- Implement proper error handling
+- Use async/await for API calls
+- Maintain consistent code style
+
+### CSS
+- Use consistent styling patterns
+- Implement responsive design
+- Follow BEM methodology
+- Ensure cross-browser compatibility
+
+## 🚀 Deployment Considerations
+
+### Production Setup
+- Use Gunicorn for WSGI server
+- Configure proper logging
+- Set up monitoring and alerting
+- Implement health checks
+
+### Environment Configuration
+- Use environment variables for configuration
+- Separate development and production settings
+- Secure sensitive information
+- Implement proper database connections
+
+### Performance Monitoring
+- Monitor application performance
+- Track database query performance
+- Monitor memory usage
+- Set up error tracking
+
+## 🔮 Future Development Guidelines
+
+### Scalability
+- Design for horizontal scaling
+- Implement caching strategies
+- Optimize database queries
+- Consider microservices architecture
+
+### Feature Development
+- Maintain backward compatibility
+- Follow established patterns
+- Document new features thoroughly
+- Test thoroughly before deployment
+
+### Code Quality
+- Regular code reviews
+- Automated testing
+- Performance monitoring
+- Security audits
+
+## 📋 Common Tasks & Commands
+
+### Development
+```bash
+# Run development server
+python main.py
+
+# Initialize database
+python init_db.py
+
+# Create migration
+alembic revision --autogenerate -m "description"
+
+# Apply migrations
+alembic upgrade head
+```
+
+### API Testing
+```bash
+# Initialize base data
+curl -X POST http://localhost:5000/api/antigens/initialize
+curl -X POST http://localhost:5000/api/antibody-rules/initialize
+```
+
+### Database Operations
+```bash
+# Reset database
+python init_db.py
+
+# Backup data (if needed)
+# Implement backup strategy
+```
+
+## 🎯 Communication Preferences
+
+### When Asking for Help
+- Provide specific error messages
+- Include relevant code snippets
+- Describe expected vs actual behavior
+- Mention any recent changes
+
+### When Implementing Features
+- Start with API design
+- Implement business logic
+- Add frontend components
+- Test thoroughly
+- Update documentation
+
+### When Debugging
+- Check logs first
+- Verify data integrity
+- Test individual components
+- Use debugging tools
+
+---
+
+**Remember**: This is a medical/laboratory system, so accuracy and reliability are paramount. Always prioritize data integrity and system stability over development speed. 

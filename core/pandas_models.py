@@ -125,6 +125,14 @@ class PandasAntigramManager:
                 # Load matrix
                 matrix_dict = json.loads(stored.matrix_data)
                 matrix_df = pd.DataFrame.from_dict(matrix_dict, orient='index')
+                
+                # Check if the matrix is transposed (antigens as index, cells as columns)
+                # If so, transpose it to have cells as index and antigens as columns
+                if len(matrix_df.columns) < len(matrix_df.index) and any(str(col).isdigit() for col in matrix_df.columns):
+                    # Matrix is transposed, fix it
+                    matrix_df = matrix_df.T
+                    logger.info(f"Transposed matrix for antigram {stored.antigram_id}")
+                
                 matrix_df.index.name = 'cell_number'
                 
                 # Load metadata
@@ -153,6 +161,14 @@ class PandasAntigramManager:
                 # Load matrix
                 matrix_dict = json.loads(stored.matrix_data)
                 matrix_df = pd.DataFrame.from_dict(matrix_dict, orient='index')
+                
+                # Check if the matrix is transposed (antigens as index, cells as columns)
+                # If so, transpose it to have cells as index and antigens as columns
+                if len(matrix_df.columns) < len(matrix_df.index) and any(str(col).isdigit() for col in matrix_df.columns):
+                    # Matrix is transposed, fix it
+                    matrix_df = matrix_df.T
+                    logger.info(f"Transposed matrix for antigram {antigram_id}")
+                
                 matrix_df.index.name = 'cell_number'
                 
                 # Load metadata
@@ -387,8 +403,10 @@ class PandasPatientReactionManager:
         self.reactions_df.index = pd.MultiIndex.from_tuples([], names=['antigram_id', 'cell_number'])
         self.db_session = db_session
     
-    def add_reaction(self, antigram_id: int, cell_number: int, reaction: str):
+    def add_reaction(self, antigram_id: int, cell_number, reaction: str):
         """Add or update a patient reaction."""
+        # Convert cell_number to string to handle both numeric and alphabetic cell numbers
+        cell_number = str(cell_number)
         index = (antigram_id, cell_number)
         # If not MultiIndex, convert
         if not isinstance(self.reactions_df.index, pd.MultiIndex):
@@ -403,9 +421,12 @@ class PandasPatientReactionManager:
         if self.db_session:
             self._save_reaction_to_db(antigram_id, cell_number, reaction)
     
-    def _save_reaction_to_db(self, antigram_id: int, cell_number: int, reaction: str):
+    def _save_reaction_to_db(self, antigram_id: int, cell_number, reaction: str):
         """Save patient reaction to database."""
         try:
+            # Convert cell_number to string for consistent handling
+            cell_number = str(cell_number)
+            
             # Check if reaction already exists
             existing = self.db_session.query(PatientReactionStorage).filter_by(
                 antigram_id=antigram_id, 
@@ -491,7 +512,7 @@ class PandasPatientReactionManager:
                 logger.error(f"Error committing changes: {e}")
                 raise
     
-    def get_reactions_for_antigram(self, antigram_id: int) -> Dict[int, str]:
+    def get_reactions_for_antigram(self, antigram_id: int) -> Dict:
         """Get all patient reactions for a specific antigram."""
         if self.reactions_df.empty:
             return {}
@@ -548,8 +569,10 @@ class PandasPatientReactionManager:
         self.reactions_df = pd.DataFrame(columns=['patient_reaction'])
         self.reactions_df.index = pd.MultiIndex.from_tuples([], names=['antigram_id', 'cell_number'])
     
-    def delete_reaction(self, antigram_id: int, cell_number: int):
+    def delete_reaction(self, antigram_id: int, cell_number):
         """Delete a specific patient reaction."""
+        # Convert cell_number to string for consistent handling
+        cell_number = str(cell_number)
         index = (antigram_id, cell_number)
         if index in self.reactions_df.index:
             self.reactions_df = self.reactions_df.drop(index)
@@ -622,7 +645,7 @@ class PatientReactionStorage(Base):
     
     id = Column(Integer, primary_key=True)
     antigram_id = Column(Integer, nullable=False)
-    cell_number = Column(Integer, nullable=False)
+    cell_number = Column(String(10), nullable=False)  # Changed to String to handle alphabetic cell numbers
     patient_reaction = Column(String(10), nullable=False)  # The reaction value
     created_at = Column(Date, nullable=False)
     updated_at = Column(Date, nullable=False)

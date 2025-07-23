@@ -1,10 +1,8 @@
 TO DO:
 
-- Template Management page - add modify button when viewing next to Delete action button. Have template pop up in a pop-up screen with all the current data and allow the user to edit it and then either save and delete. THIS MAY CAUSE a casacde affect with the related antigrams. 
 
 Edit MATCH definition, Match is when cell-for-cell perfect match, NOT when identified. There is a difference. MATCH is YET to be idenified. 
 
-Add low frequency antigen selections/category
 
 test real ABID patients
 
@@ -14,11 +12,16 @@ add users and permission/blocked routes for admin users
 
 add linter 
 
-input validation/middleware
+input validation/middleware for antigens
+
+Add antigen pair relationship to Antigen Management? Could refactor Homo rule?
+
+improve ABID process by implementing Set theory and Set, Union, etc methods with pt reactions
+
+
+
+test 3 pos 3 neg
 
 update UI
 
-AG = D, To ID Rules:
 
-
-7/16/25

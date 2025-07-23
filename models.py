@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship, declarative_base
 import json
 
@@ -31,31 +31,34 @@ class AntigramTemplate(Base):
         }
 
 
-class AntigenRule(Base):
-    __tablename__ = 'antigen_rules'
+class AntibodyRule(Base):
+    """
+    New antibody rule model to replace the old AntigenRule.
+    Supports all rule types: ABSpecificRO, Homo, Hetero, SingleAG, LowF
+    """
+    __tablename__ = 'antibody_rules'
+    
     id = Column(Integer, primary_key=True)
+    rule_type = Column(String(50), nullable=False)  # 'abspecific', 'homo', 'hetero', 'single', 'lowf'
     target_antigen = Column(String(50), nullable=False)  # The antigen that can be ruled out
-    rule_type = Column(String(50), nullable=False)  # e.g., "standard", "composite"
-    rule_conditions = Column(String(500), nullable=False)  # JSON string of conditions
-    rule_antigens = Column(String(255), nullable=False)  # Comma-separated list of antigens involved in the rule
-    required_count = Column(Integer, nullable=False, default=1)  # Number of cells needed for rule-out
-    description = Column(String(255))  # Optional description of the rule
+    rule_data = Column(Text, nullable=False)  # JSON string with rule-specific data
+    description = Column(String(255))  # Optional description
+    enabled = Column(Boolean, default=True)  # Whether the rule is active
 
     def to_dict(self):
         return {
             "id": self.id,
-            "target_antigen": self.target_antigen,
             "rule_type": self.rule_type,
-            "rule_conditions": json.loads(self.rule_conditions),
-            "rule_antigens": self.rule_antigens.split(",") if self.rule_antigens else [],
-            "required_count": self.required_count,
-            "description": self.description
+            "target_antigen": self.target_antigen,
+            "rule_data": json.loads(self.rule_data),
+            "description": self.description,
+            "enabled": self.enabled
         }
 
     @property
-    def conditions(self):
-        """Helper property to get rule_conditions as a dict"""
-        return json.loads(self.rule_conditions)
+    def data(self):
+        """Helper property to get rule_data as a dict"""
+        return json.loads(self.rule_data)
 
 
 class Antigen(Base):

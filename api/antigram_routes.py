@@ -153,11 +153,11 @@ def register_antigram_routes(app, db_session):
             if matrix is None or metadata is None:
                 return jsonify({"error": f"Antigram with ID {id} not found"}), 404
             
-            # Format cells data
+            # Format cells data - matrix has cells as index and antigens as columns
             cells = []
             for cell_number in matrix.index:
                 cells.append({
-                    "cell_number": cell_number,
+                    "cell_number": str(cell_number),  # Ensure cell_number is string
                     "reactions": matrix.loc[cell_number].to_dict()
                 })
             return jsonify({

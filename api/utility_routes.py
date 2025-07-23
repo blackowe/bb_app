@@ -42,9 +42,21 @@ def register_utility_routes(app, db_session):
 
                 logger.info(f"Matching Cells Found: {len(matching_cells)}")
 
-                # Format results
+                # Format results with all antigens, not just search pattern
                 results = []
                 for match in matching_cells:
+                    # Get all reactions for this cell from the matrix
+                    antigram_id = match['antigram_id']
+                    cell_number = match['cell_number']
+                    matrix = antigram_manager.antigram_matrices[antigram_id]
+                    
+                    # Get all reactions for this cell
+                    cell_reactions = {}
+                    if cell_number in matrix.index:
+                        cell_row = matrix.loc[cell_number]
+                        for antigen in antigen_list:
+                            cell_reactions[antigen] = cell_row.get(antigen, '-')
+                    
                     results.append({
                         "antigram": {
                             "id": match['antigram_id'],
@@ -54,11 +66,15 @@ def register_utility_routes(app, db_session):
                         },
                         "cell": {
                             "cell_number": match['cell_number'],
-                            "reactions": [match['reactions'].get(antigen, "-") for antigen in antigen_profile.keys()]
+                            "reactions": cell_reactions
                         }
                     })
 
-                return jsonify({"results": results, "antigens": list(antigen_profile.keys())}), 200
+                return jsonify({
+                    "results": results, 
+                    "antigens": antigen_list,
+                    "search_pattern": list(antigen_profile.keys())
+                }), 200
 
         except Exception as e:
             logger.error(f"Error in Cell Finder Backend: {str(e)}")

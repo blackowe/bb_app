@@ -1,27 +1,28 @@
 """
-Consolidated antigen routes.
-This module handles all antigen and antigen rule management endpoints.
+Antigen and antibody rule management routes.
+This module handles all antigen and antibody rule management endpoints.
 """
 
 from flask import request, jsonify, render_template, current_app
-from models import Antigen, AntigenRule
+from models import Antigen, AntibodyRule
 from default_rules import get_default_rules
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 def register_antigen_routes(app, db_session):
-    """Register all antigen and antigen rule routes."""
+    """Register all antigen and antibody rule routes."""
     
-    @app.route('/antigens')
-    def antigens_page():
-        """Render the antigens management page."""
-        return render_template('antigen_rules.html')
+    @app.route('/antigen')
+    def antigen_page():
+        """Render the antigen management page."""
+        return render_template('antigen.html')
 
-    @app.route('/antigen-rules')
-    def antigen_rules_page():
-        """Render the antigen rules management page."""
-        return render_template('antigen_rules.html')
+    @app.route('/antibody_rules')
+    def antibody_rules_page():
+        """Render the antibody rules management page."""
+        return render_template('antibody_rules.html')
 
     # Antigen Management Routes
     @app.route('/api/antigens', methods=['GET'])
@@ -70,10 +71,7 @@ def register_antigen_routes(app, db_session):
                 return jsonify({"error": "Antigen not found"}), 404
 
             # Delete associated rules
-            db_session.query(AntigenRule).filter(
-                (AntigenRule.target_antigen == antigen.name) |
-                (AntigenRule.rule_antigens.like(f"%{antigen.name}%"))
-            ).delete()
+            db_session.query(AntibodyRule).filter_by(target_antigen=antigen.name).delete()
 
             db_session.delete(antigen)
             db_session.commit()
@@ -140,139 +138,208 @@ def register_antigen_routes(app, db_session):
             logger.error(f"Error initializing base antigens: {e}")
             return jsonify({"error": str(e)}), 500
 
-    # Antigen Rules Management Routes
-    @app.route('/api/antigen-rules', methods=['GET'])
-    def get_rules():
-        """Get all antigen rules."""
+    @app.route('/api/antigens/pairs', methods=['GET'])
+    def get_antigen_pairs():
+        """Get antigen pairs for homozygous rules."""
         try:
-            rules = db_session.query(AntigenRule).all()
-            return jsonify([rule.to_dict() for rule in rules])
+            # Get all antigens
+            antigens = db_session.query(Antigen).all()
+            antigen_names = [antigen.name for antigen in antigens]
+            
+            # Define common antigen pairs based on blood group systems
+            # This could be made configurable in the database later
+            antigen_pairs = {
+                # Rh System
+                'D': ['C', 'c', 'E', 'e'],
+                'C': ['D', 'E', 'e'],
+                'c': ['D', 'E', 'e'],
+                'E': ['D', 'C', 'c'],
+                'e': ['D', 'C', 'c'],
+                
+                # Kell System
+                'K': ['k'],
+                'k': ['K'],
+                
+                # Duffy System
+                'Fya': ['Fyb'],
+                'Fyb': ['Fya'],
+                
+                # Kidd System
+                'Jka': ['Jkb'],
+                'Jkb': ['Jka'],
+                
+                # MNS System
+                'M': ['N', 'S', 's'],
+                'N': ['M', 'S', 's'],
+                'S': ['M', 'N', 's'],
+                's': ['M', 'N', 'S'],
+                
+                # Lewis System
+                'Lea': ['Leb'],
+                'Leb': ['Lea'],
+                
+                # Lutheran System
+                'Lub': ['Lua'],
+                'Lua': ['Lub'],
+                
+                # Kell Extended
+                'Kpa': ['Kpb'],
+                'Kpb': ['Kpa'],
+                'Jsa': ['Jsb'],
+                'Jsb': ['Jsa']
+            }
+            
+            # Filter pairs to only include antigens that exist in the database
+            filtered_pairs = {}
+            for antigen, pairs in antigen_pairs.items():
+                if antigen in antigen_names:
+                    filtered_pairs[antigen] = [pair for pair in pairs if pair in antigen_names]
+            
+            return jsonify({
+                'antigen_pairs': filtered_pairs,
+                'available_antigens': antigen_names
+            })
         except Exception as e:
-            logger.error(f"Error getting antigen rules: {e}")
+            logger.error(f"Error getting antigen pairs: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/antigen-rules', methods=['POST'])
-    def create_rule():
-        """Create a new antigen rule."""
+    # Antibody Rules Management Routes
+    @app.route('/api/antibody-rules', methods=['GET'])
+    def get_antibody_rules():
+        """Get all antibody rules."""
+        try:
+            rules = db_session.query(AntibodyRule).all()
+            return jsonify([rule.to_dict() for rule in rules])
+        except Exception as e:
+            logger.error(f"Error getting antibody rules: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/antibody-rules', methods=['POST'])
+    def create_antibody_rule():
+        """Create a new antibody rule."""
         try:
             data = request.json
-            if not data or 'target_antigen' not in data or 'rule_type' not in data:
+            if not data or 'rule_type' not in data or 'target_antigen' not in data or 'rule_data' not in data:
                 return jsonify({"error": "Missing required fields"}), 400
 
             # Prepare rule data
-            rule_data = {
-                'target_antigen': data['target_antigen'],
-                'rule_type': data['rule_type'],
-                'rule_conditions': data.get('rule_conditions', '{}'),
-                'rule_antigens': data.get('rule_antigens', ''),
-                'required_count': data.get('required_count', 1),
-                'description': data.get('description', '')
-            }
-
-            new_rule = AntigenRule(**rule_data)
+            rule_data_json = json.dumps(data['rule_data'])
+            
+            new_rule = AntibodyRule(
+                rule_type=data['rule_type'],
+                target_antigen=data['target_antigen'],
+                rule_data=rule_data_json,
+                description=data.get('description', ''),
+                enabled=data.get('enabled', True)
+            )
             db_session.add(new_rule)
             db_session.commit()
             
-            logger.info(f"Created new antigen rule for: {data['target_antigen']}")
+            logger.info(f"Created new antibody rule for: {data['target_antigen']}")
             return jsonify(new_rule.to_dict()), 201
         except Exception as e:
             db_session.rollback()
-            logger.error(f"Error creating antigen rule: {e}")
+            logger.error(f"Error creating antibody rule: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/antigen-rules/<int:rule_id>', methods=['GET'])
-    def get_rule(rule_id):
-        """Get a specific antigen rule."""
+    @app.route('/api/antibody-rules/<int:rule_id>', methods=['GET'])
+    def get_antibody_rule(rule_id):
+        """Get a specific antibody rule."""
         try:
-            rule = db_session.query(AntigenRule).filter_by(id=rule_id).first()
+            rule = db_session.query(AntibodyRule).filter_by(id=rule_id).first()
             if not rule:
                 return jsonify({"error": "Rule not found"}), 404
             return jsonify(rule.to_dict())
         except Exception as e:
-            logger.error(f"Error getting antigen rule: {e}")
+            logger.error(f"Error getting antibody rule: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/antigen-rules/<int:rule_id>', methods=['PUT'])
-    def update_rule(rule_id):
-        """Update an antigen rule."""
+    @app.route('/api/antibody-rules/<int:rule_id>', methods=['PUT'])
+    def update_antibody_rule(rule_id):
+        """Update an antibody rule."""
         try:
-            rule = db_session.query(AntigenRule).filter_by(id=rule_id).first()
+            rule = db_session.query(AntibodyRule).filter_by(id=rule_id).first()
             if not rule:
                 return jsonify({"error": "Rule not found"}), 404
 
             data = request.json
-            if data.get('target_antigen'):
-                rule.target_antigen = data['target_antigen']
             if data.get('rule_type'):
                 rule.rule_type = data['rule_type']
-            if data.get('rule_conditions'):
-                rule.rule_conditions = data['rule_conditions']
-            if data.get('rule_antigens'):
-                rule.rule_antigens = data['rule_antigens']
-            if data.get('required_count'):
-                rule.required_count = data['required_count']
-            if data.get('description'):
+            if data.get('target_antigen'):
+                rule.target_antigen = data['target_antigen']
+            if data.get('rule_data'):
+                rule.rule_data = json.dumps(data['rule_data'])
+            if data.get('description') is not None:
                 rule.description = data['description']
+            if data.get('enabled') is not None:
+                rule.enabled = data['enabled']
 
             db_session.commit()
-            logger.info(f"Updated antigen rule: {rule_id}")
+            logger.info(f"Updated antibody rule: {rule_id}")
             return jsonify(rule.to_dict())
         except Exception as e:
             db_session.rollback()
-            logger.error(f"Error updating antigen rule: {e}")
+            logger.error(f"Error updating antibody rule: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/antigen-rules/<int:rule_id>', methods=['DELETE'])
-    def delete_rule(rule_id):
-        """Delete an antigen rule."""
+    @app.route('/api/antibody-rules/<int:rule_id>', methods=['DELETE'])
+    def delete_antibody_rule(rule_id):
+        """Delete an antibody rule."""
         try:
-            rule = db_session.query(AntigenRule).filter_by(id=rule_id).first()
+            rule = db_session.query(AntibodyRule).filter_by(id=rule_id).first()
             if not rule:
                 return jsonify({"error": "Rule not found"}), 404
 
             db_session.delete(rule)
             db_session.commit()
             
-            logger.info(f"Deleted antigen rule: {rule_id}")
+            logger.info(f"Deleted antibody rule: {rule_id}")
             return jsonify({"message": "Rule deleted successfully"})
         except Exception as e:
             db_session.rollback()
-            logger.error(f"Error deleting antigen rule: {e}")
+            logger.error(f"Error deleting antibody rule: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/antigen-rules/delete-all', methods=['DELETE'])
-    def delete_all_rules():
-        """Delete all antigen rules."""
+    @app.route('/api/antibody-rules/delete-all', methods=['DELETE'])
+    def delete_all_antibody_rules():
+        """Delete all antibody rules."""
         try:
-            db_session.query(AntigenRule).delete()
+            db_session.query(AntibodyRule).delete()
             db_session.commit()
             
-            logger.info("Deleted all antigen rules")
+            logger.info("Deleted all antibody rules")
             return jsonify({"message": "All rules deleted successfully"})
         except Exception as e:
             db_session.rollback()
-            logger.error(f"Error deleting all antigen rules: {e}")
+            logger.error(f"Error deleting all antibody rules: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/api/antigen-rules/initialize', methods=['POST'])
-    def initialize_rules():
-        """Initialize default antigen rules."""
+    @app.route('/api/antibody-rules/initialize', methods=['POST'])
+    def initialize_antibody_rules():
+        """Initialize default antibody rules."""
         try:
             # Clear existing rules
-            db_session.query(AntigenRule).delete()
+            db_session.query(AntibodyRule).delete()
             
             # Get default rules
             default_rules = get_default_rules()
             
             # Add new rules
             for rule_data in default_rules:
-                rule = AntigenRule(**rule_data)
+                rule_data_json = json.dumps(rule_data['rule_data'])
+                rule = AntibodyRule(
+                    rule_type=rule_data['rule_type'],
+                    target_antigen=rule_data['target_antigen'],
+                    rule_data=rule_data_json,
+                    description=rule_data['description'],
+                    enabled=True
+                )
                 db_session.add(rule)
             
             db_session.commit()
-            logger.info("Antigen rules initialized successfully")
-            return jsonify({"message": "Antigen rules initialized successfully"})
+            logger.info("Default antibody rules initialized successfully")
+            return jsonify({"message": "Default antibody rules initialized successfully"}), 200
         except Exception as e:
             db_session.rollback()
-            logger.error(f"Error initializing antigen rules: {e}")
+            logger.error(f"Error initializing default antibody rules: {e}")
             return jsonify({"error": str(e)}), 500 

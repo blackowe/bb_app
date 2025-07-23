@@ -99,34 +99,75 @@ document.addEventListener("DOMContentLoaded", () => {
             selectedLotNumber = e.target.dataset.lotNumber;
             
             console.log("Selected Antigram ID:", selectedAntigramId);
+            console.log("Selected Lot Number:", selectedLotNumber);
     
             try {
                 const response = await fetch(`/api/antigrams/${selectedAntigramId}`);
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("API Error Response:", errorText);
                     alert("Failed to fetch antigram details.");
                     return;
                 }
     
                 const antigram = await response.json();
-                reactionFormContainer.innerHTML = `<h3>Enter Patient Reactions for Lot ${selectedLotNumber}</h3>`;
-    
-                antigram.cells.forEach(cell => {
+                console.log("Antigram Details:", antigram);
+                
+                // Clear previous form and show the container
+                reactionFormContainer.style.display = "block";
+                const cardBody = reactionFormContainer.querySelector(".card-body");
+                cardBody.innerHTML = "";
+                
+                // Add header
+                const header = document.createElement("h5");
+                header.textContent = `Enter Patient Reactions for Lot ${selectedLotNumber}`;
+                header.style.marginBottom = "15px";
+                cardBody.appendChild(header);
+                
+                // Check if cells data exists
+                if (!antigram.cells || !Array.isArray(antigram.cells) || antigram.cells.length === 0) {
+                    console.error("No cells data found in antigram:", antigram);
+                    const errorMsg = document.createElement("p");
+                    errorMsg.className = "text-danger";
+                    errorMsg.textContent = "No cell data found for this antigram.";
+                    cardBody.appendChild(errorMsg);
+                    return;
+                }
+                
+                console.log("Number of cells found:", antigram.cells.length);
+                
+                // Create form for each cell
+                antigram.cells.forEach((cell, index) => {
+                    console.log(`Processing cell ${index}:`, cell);
+                    
                     const formRow = document.createElement("div");
                     formRow.classList.add("form-row");
-                    formRow.innerHTML = `
-                        <span>Cell Number: ${cell.cell_number}</span>
-                        <input 
-                            type="text" 
-                            id="patient-rxn-${cell.cell_number}" 
-                            data-cell-number="${cell.cell_number}" 
-                            placeholder="+ or 0 (optional)">
-                    `;
-                    reactionFormContainer.appendChild(formRow);
+                    formRow.style.cssText = "display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa;";
+                    
+                    const cellLabel = document.createElement("span");
+                    cellLabel.textContent = `Cell ${cell.cell_number}:`;
+                    cellLabel.style.fontWeight = "bold";
+                    cellLabel.style.minWidth = "80px";
+                    
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.id = `patient-rxn-${cell.cell_number}`;
+                    input.dataset.cellNumber = cell.cell_number;
+                    input.placeholder = "+ or 0 (optional)";
+                    input.style.cssText = "width: 120px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; text-align: center;";
+                    input.maxLength = "1";
+                    
+                    formRow.appendChild(cellLabel);
+                    formRow.appendChild(input);
+                    cardBody.appendChild(formRow);
                 });
     
                 saveAllReactionsBtn.style.display = "block";
+                console.log("✅ Cell form created successfully");
+                
             } catch (error) {
-                console.error("Error fetching antigram details:", error);
+                console.error("❌ Error fetching antigram details:", error);
+                alert("Error fetching antigram details: " + error.message);
             }
         }
     });
@@ -144,29 +185,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 reactionFormContainer.querySelectorAll("input[data-cell-number]")
             )
                 .map(input => ({
-                    cell_number: parseInt(input.dataset.cellNumber),
-                    patient_rxn: input.value.trim(),
+                    cell_number: input.dataset.cellNumber,  // Keep as string, don't parse as integer
+                    reaction: input.value.trim(),
                 }))
-                .filter(r => r.patient_rxn === "+" || r.patient_rxn === "0");
+                .filter(r => r.reaction === "+" || r.reaction === "0");
     
             if (reactions.length === 0) {
                 alert("No valid reactions to save.");
                 return;
             }
     
-            const response = await fetch("/api/patient-reactions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ antigram_id: selectedAntigramId, reactions }),
-            });
+            console.log("Saving reactions:", reactions);
     
-            //  Check response status before throwing an error**
-            if (!response.ok) {
-                const errorMessage = await response.text();
-                throw new Error(`Failed to save reactions: ${errorMessage}`);
+            // Send each reaction individually
+            for (const reactionData of reactions) {
+                const response = await fetch("/api/patient-reactions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        antigram_id: selectedAntigramId, 
+                        cell_number: reactionData.cell_number,
+                        reaction: reactionData.reaction
+                    }),
+                });
+    
+                if (!response.ok) {
+                    const errorMessage = await response.text();
+                    throw new Error(`Failed to save reaction for cell ${reactionData.cell_number}: ${errorMessage}`);
+                }
             }
     
-            console.log("✅ Reactions saved successfully!");
+            console.log("✅ All reactions saved successfully!");
     
             //  Ensure ABID results are re-fetched after saving reactions**
             await fetchAndRenderPatientReactions();

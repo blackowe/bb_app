@@ -84,7 +84,7 @@ app/
    ```bash
    # Initialize antigens and rules via API
    curl -X POST http://localhost:5000/api/antigens/initialize
-   curl -X POST http://localhost:5000/api/antigen-rules/initialize
+   curl -X POST http://localhost:5000/api/antibody-rules/initialize
    ```
 
 ## 📊 API Endpoints
@@ -110,12 +110,13 @@ app/
 - `DELETE /api/antigens/{name}` - Delete antigen
 - `POST /api/antigens/initialize` - Initialize base antigens
 
-### Antigen Rules
-- `GET /api/antigen-rules` - Get all rules
-- `POST /api/antigen-rules` - Create rule
-- `PUT /api/antigen-rules/{id}` - Update rule
-- `DELETE /api/antigen-rules/{id}` - Delete rule
-- `POST /api/antigen-rules/initialize` - Initialize default rules
+### Antibody Rules
+- `GET /api/antibody-rules` - Get all rules
+- `POST /api/antibody-rules` - Create rule
+- `PUT /api/antibody-rules/{id}` - Update rule
+- `DELETE /api/antibody-rules/{id}` - Delete rule
+- `DELETE /api/antibody-rules/delete-all` - Delete all rules
+- `POST /api/antibody-rules/initialize` - Initialize default rules
 
 ## 🔄 Data Flow
 

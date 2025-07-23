@@ -5,7 +5,7 @@ from connect_connector import connect_with_connector
 from api.antigram_routes import register_antigram_routes
 from api.antibody_routes import register_antibody_routes
 from api.utility_routes import register_utility_routes
-from api.antigen_routes import register_antigen_routes
+from api.antigen import register_antigen_routes
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from core.pandas_models import PandasAntigramManager, PandasPatientReactionManager
@@ -52,23 +52,31 @@ if "sqlite" in str(engine.url):
     try:
         with app.app_context():
             from default_rules import get_default_rules
-            from models import AntigenRule
+            from models import AntibodyRule
             
             # Clear existing rules
-            db_session.query(AntigenRule).delete()
+            db_session.query(AntibodyRule).delete()
             
             # Get default rules
             default_rules = get_default_rules()
             
             # Add new rules
             for rule_data in default_rules:
-                rule = AntigenRule(**rule_data)
+                # Convert rule_data to JSON string for storage
+                rule_data_json = json.dumps(rule_data['rule_data'])
+                rule = AntibodyRule(
+                    rule_type=rule_data['rule_type'],
+                    target_antigen=rule_data['target_antigen'],
+                    rule_data=rule_data_json,
+                    description=rule_data['description'],
+                    enabled=True
+                )
                 db_session.add(rule)
             
             db_session.commit()
-            logger.info("Default rules initialized successfully")
+            logger.info("Default antibody rules initialized successfully")
     except Exception as e:
-        logger.error(f"Error initializing default rules: {str(e)}")
+        logger.error(f"Error initializing default antibody rules: {str(e)}")
 
 # Initialize pandas managers
 antigram_manager = PandasAntigramManager(db_session)
