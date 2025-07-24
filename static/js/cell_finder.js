@@ -1,85 +1,144 @@
 document.addEventListener("DOMContentLoaded", async function () {
+    await loadAntigenInputTable();
+    document.getElementById("reset-btn").addEventListener("click", resetAntigenInputs);
+});
+
+async function loadAntigenInputTable() {
     try {
-        // First try to get antigens from the database (Antigen entities)
-        let response = await fetch("/api/antigens");
-        let antigens = [];
-        
-        if (response.ok) {
-            const data = await response.json();
-            // The API returns an array of antigen objects, extract the names
-            if (Array.isArray(data)) {
-                antigens = data.map(antigen => antigen.name);
-                console.log("✅ Loaded antigens from database:", antigens);
+        // Fetch valid antigens
+        const validResp = await fetch("/api/antigens/valid");
+        const validAntigens = await validResp.json();
+        // Fetch default order
+        const orderResp = await fetch("/api/antigens/default-order");
+        const panocellOrder = await orderResp.json();
+        // Group by system
+        const systemGroups = {};
+        validAntigens.forEach(ag => {
+            if (!systemGroups[ag.system]) systemGroups[ag.system] = [];
+            systemGroups[ag.system].push(ag.name);
+        });
+        // Build antigen order: Panocell order first, then any remaining valid antigens grouped by system
+        let antigenOrder = [];
+        let used = new Set();
+        panocellOrder.forEach(ag => {
+            const agObj = validAntigens.find(a => a.name === ag);
+            if (agObj && !used.has(ag)) {
+                antigenOrder.push(ag);
+                used.add(ag);
             }
-        }
-        
-        // If no antigens from database, try to get them from antigram matrices
-        if (!antigens || antigens.length === 0) {
-            console.log("No antigens in database, trying antigram matrices...");
-            response = await fetch("/api/antigens");
-            if (response.ok) {
-                const data = await response.json();
-                antigens = data.antigens || [];
-                console.log("✅ Loaded antigens from antigram matrices:", antigens);
-            }
-        }
-
-        if (!antigens || antigens.length === 0) {
-            console.warn("No antigens found in the system");
-            showNoAntigensMessage();
-            return;
-        }
-
-        // Populate the antigen input form dynamically
-        populateAntigenTable(antigens);
-
-        // Store antigen order globally for use in results table
-        window.antigenHeaders = antigens;
-
-        // Enable the search button
+        });
+        Object.keys(systemGroups).forEach(sys => {
+            systemGroups[sys].forEach(ag => {
+                if (!used.has(ag)) {
+                    antigenOrder.push(ag);
+                    used.add(ag);
+                }
+            });
+        });
+        renderAntigenInputTable(validAntigens, antigenOrder, systemGroups);
+        window.antigenHeaders = antigenOrder;
         enableSearchButton();
-
-        console.log("✅ Antigens loaded successfully:", antigens);
-
     } catch (error) {
         console.error("❌ Error loading antigens:", error);
         showErrorMessage();
     }
-});
+}
 
-function populateAntigenTable(antigens) {
-    const antigenHeaderRow = document.getElementById("antigen-header-row");
-    const antigenInputRow = document.getElementById("antigen-input-row");
-    // Remove any previous system row
-    if (antigenHeaderRow.previousElementSibling && antigenHeaderRow.previousElementSibling.id === 'system-header-row') {
-        antigenHeaderRow.previousElementSibling.remove();
-    }
-    // Clear existing content
-    antigenHeaderRow.innerHTML = "";
-    antigenInputRow.innerHTML = "";
-
-    // Group antigens by system
-    const systemGroups = {};
-    antigens.forEach(ag => {
-        if (!systemGroups[ag.system]) systemGroups[ag.system] = [];
-        systemGroups[ag.system].push(ag.name);
-    });
-    // Build system row
-    const systemRow = document.createElement('tr');
-    systemRow.id = 'system-header-row';
-    for (const [system, ags] of Object.entries(systemGroups)) {
+function renderAntigenInputTable(validAntigens, antigenOrder, systemGroups) {
+    const antigenInputTable = document.getElementById("antigen-input-table");
+    const thead = antigenInputTable.querySelector("thead");
+    const tbody = antigenInputTable.querySelector("tbody");
+    // Remove all rows
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+    // --- System header row ---
+    const systemHeaderRow = document.createElement("tr");
+    systemHeaderRow.id = "system-header-row";
+    let i = 0;
+    while (i < antigenOrder.length) {
+        const agName = antigenOrder[i];
+        const ag = validAntigens.find(a => a.name === agName);
+        if (!ag) { i++; continue; }
+        const sys = ag.system;
+        let span = 1;
+        for (let j = i + 1; j < antigenOrder.length; j++) {
+            const nextAg = validAntigens.find(a => a.name === antigenOrder[j]);
+            if (nextAg && nextAg.system === sys) span++;
+            else break;
+        }
         const th = document.createElement('th');
-        th.colSpan = ags.length;
-        th.textContent = system;
-        systemRow.appendChild(th);
+        th.colSpan = span;
+        th.className = 'antigen-system-header';
+        th.textContent = sys;
+        systemHeaderRow.appendChild(th);
+        i += span;
     }
-    // Insert system row above antigenHeaderRow
-    antigenHeaderRow.parentNode.insertBefore(systemRow, antigenHeaderRow);
+    thead.appendChild(systemHeaderRow);
+    // --- Antigen name row ---
+    const antigenHeaderRow = document.createElement("tr");
+    antigenHeaderRow.id = "antigen-header-row";
+    antigenOrder.forEach((agName, idx) => {
+        const th = document.createElement('th');
+        th.className = 'antigen-dnd-th';
+        th.textContent = agName;
+        th.dataset.idx = idx;
+        th.dataset.antigen = agName;
+        antigenHeaderRow.appendChild(th);
+    });
+    thead.appendChild(antigenHeaderRow);
+    // --- Input row ---
+    const inputRow = document.createElement("tr");
+    inputRow.id = "antigen-input-row";
+    antigenOrder.forEach((agName, idx) => {
+        const td = document.createElement('td');
+        td.style.textAlign = 'center';
+        td.style.padding = '0';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control antigen-input-box';
+        input.name = agName;
+        input.maxLength = 1;
+        input.autocomplete = 'off';
+        input.addEventListener('input', function() {
+            validateAntigenInput(input);
+        });
+        input.addEventListener('blur', function() {
+            validateAntigenInput(input);
+        });
+        td.appendChild(input);
+        inputRow.appendChild(td);
+    });
+    tbody.appendChild(inputRow);
+    
+    // Add instruction text below the table
+    const instructionDiv = document.createElement('div');
+    instructionDiv.className = 'mt-2 text-muted';
+    instructionDiv.style.fontSize = '1.5em';
+    instructionDiv.innerHTML = '<small>💡 <strong>Valid inputs:</strong> Enter "0" for negative reactions or "+" for positive reactions only.</small>';
+    antigenInputTable.parentNode.appendChild(instructionDiv);
+}
 
-    // Add header row with all antigens
-    antigens.forEach(ag => {
-        antigenHeaderRow.innerHTML += `<th>${ag.name}</th>`;
-        antigenInputRow.innerHTML += `<td><input type="text" class="form-control" name="${ag.name}" maxlength="1" placeholder="0 or +"></td>`;
+function validateAntigenInput(input) {
+    const val = input.value.trim();
+    if (val === "0" || val === "+") {
+        input.style.borderColor = '#007bff';
+        input.style.boxShadow = '0 0 0 0.2rem rgba(0,123,255,.25)';
+        input.style.backgroundColor = '#e7f3ff'; // Light blue background
+    } else if (val === "") {
+        input.style.borderColor = '#ccc';
+        input.style.boxShadow = '';
+        input.style.backgroundColor = '#fff'; // White background
+    } else {
+        input.style.borderColor = '#dc3545';
+        input.style.boxShadow = '0 0 0 0.2rem rgba(220,53,69,.25)';
+        input.style.backgroundColor = '#fff'; // White background for invalid
+    }
+}
+
+function resetAntigenInputs() {
+    document.querySelectorAll('.antigen-input-box').forEach(input => {
+        input.value = '';
+        validateAntigenInput(input);
     });
 }
 
@@ -122,18 +181,26 @@ function showErrorMessage() {
 // Handle form submission and search for matching cells
 document.getElementById("cell-finder-form").addEventListener("submit", async function (event) {
     event.preventDefault();
-
     const antigenProfile = {};
     const formData = new FormData(event.target);
-
-    // Collect all non-empty antigen reactions
+    let hasInvalid = false;
+    // Collect all non-empty antigen reactions, validate
     for (const [key, value] of formData.entries()) {
-        if (value && value.trim()) {
-            antigenProfile[key] = value.trim();
+        const val = value.trim();
+        if (val) {
+            if (val !== "0" && val !== "+") {
+                hasInvalid = true;
+                const input = document.querySelector(`input[name='${key}']`);
+                if (input) validateAntigenInput(input);
+            } else {
+                antigenProfile[key] = val;
+            }
         }
     }
-
-    // Validate that at least one antigen reaction is provided
+    if (hasInvalid) {
+        alert("Please enter only '0', '+', or leave blank for antigen reactions.");
+        return;
+    }
     if (Object.keys(antigenProfile).length === 0) {
         alert("Please enter at least one antigen reaction to search for.");
         return;
@@ -163,7 +230,8 @@ document.getElementById("cell-finder-form").addEventListener("submit", async fun
         console.log("✅ API Response:", data);
 
         const results = data.results;
-        const antigenHeaders = data.antigens || window.antigenHeaders || [];
+        // Use the same antigen order as the input table (Panocell order)
+        const antigenHeaders = window.antigenHeaders || [];
 
         displayResults(results, antigenHeaders);
 
@@ -191,20 +259,62 @@ function displayResults(results, antigenHeaders) {
         return;
     }
 
+    // Sort results: by expiration date (latest first), then by cell number
+    results.sort((a, b) => {
+        const dateA = new Date(a.antigram.expiration_date);
+        const dateB = new Date(b.antigram.expiration_date);
+        
+        // Sort by expiration date (descending - latest first)
+        if (dateA > dateB) return -1;
+        if (dateA < dateB) return 1;
+        
+        // If same expiration date, sort by cell number (ascending)
+        const cellA = parseInt(a.cell.cell_number);
+        const cellB = parseInt(b.cell.cell_number);
+        return cellA - cellB;
+    });
+
+    // Limit to 15 results
+    const limitedResults = results.slice(0, 15);
+
     // Show results container
     resultsContainer.style.display = "block";
 
-    // Build header with all antigens
+    // Build header with correct column order
     resultsHeaderRow.innerHTML = `
         <th>Lot Number</th>
-        <th>Expiration Date</th>
         <th>Cell Number</th>
+        <th>Expiration Date</th>
         ${antigenHeaders.map(antigen => `<th>${antigen}</th>`).join("")}
     `;
 
+    // Get today's date for expiration comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+    
+    console.log("Today's date for comparison:", today.toISOString().split('T')[0]);
+
     // Populate the result rows
-    results.forEach(result => {
+    limitedResults.forEach(result => {
         const row = document.createElement("tr");
+        
+        // Format expiration date as MM/DD/YYYY
+        const expirationDate = new Date(result.antigram.expiration_date);
+        const formattedDate = expirationDate.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+        });
+        
+        // Determine if date is expired (compare dates only, not time)
+        const expirationDateOnly = new Date(expirationDate.getFullYear(), expirationDate.getMonth(), expirationDate.getDate());
+        const isExpired = expirationDateOnly < today;
+        
+        // Use inline styles to ensure color coding works
+        const dateStyle = isExpired ? 'style="color: #dc3545 !important; font-weight: bold !important;"' : 'style="color: black !important;"';
+        
+        // Debug logging
+        console.log(`Date: ${formattedDate}, Original: ${result.antigram.expiration_date}, Is Expired: ${isExpired}, Style: ${dateStyle}`);
         
         // Get reactions for all antigens in the correct order
         const reactions = antigenHeaders.map(antigen => {
@@ -214,13 +324,13 @@ function displayResults(results, antigenHeaders) {
 
         row.innerHTML = `
             <td>${result.antigram.lot_number}</td>
-            <td>${result.antigram.expiration_date}</td>
             <td>${result.cell.cell_number}</td>
+            <td ${dateStyle}>${formattedDate}</td>
             ${reactions.map(reaction => `<td>${reaction}</td>`).join("")}
         `;
         
         resultsBody.appendChild(row);
     });
 
-    console.log(`✅ Displayed ${results.length} matching cells`);
+    console.log(`✅ Displayed ${limitedResults.length} matching cells (limited to 15)`);
 }
