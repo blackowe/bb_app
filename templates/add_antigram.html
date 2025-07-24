@@ -1,73 +1,122 @@
 {% extends "base.html" %}
 
+{% block head %}
+<style>
+    .main-container {
+        max-width: 70% !important;
+        margin: 0 auto;
+    }
+    .alert-area {
+        min-height: 48px;
+        margin-bottom: 18px;
+    }
+    .table-container {
+        overflow-x: auto;
+        max-width: 100%;
+        white-space: nowrap;
+    }
+    .table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+        font-size: 1.08em;
+    }
+    .table th, .table td {
+        background-color: #f4f4f4 !important;
+        color: black !important;
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+    }
+    .antigen-instruction {
+        font-size: 1.1em;
+        margin-top: 14px;
+        margin-bottom: 10px;
+        color: #6c757d;
+        padding: 10px 0 10px 0;
+    }
+    .card-header {
+        font-size: 1.35em;
+        font-weight: bold;
+    }
+    .card-body {
+        font-size: 1.08em;
+    }
+    .existing-antigrams-table {
+        font-size: 1.13em;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="main-container">
-    <div class="header-section">
+    <div class="alert-area" id="alert-area"></div>
+    <div class="header-section mb-4">
         <h2>Antigram Management</h2>
         <p>Create, view, and edit antigrams using templates</p>
     </div>
 
     <!-- Create New Antigram Section -->
-    <div class="create-section">
-        <h3>Create New Antigram</h3>
-        <div class="form-container">
-            <!-- Template Selection -->
-            <div class="form-group">
-                <label for="templateSelect">Select Template:</label>
-                <select id="templateSelect" required>
-                    <option value="">-- Select a Template --</option>
-                </select>
+    <div class="card mb-4 create-section">
+        <div class="card-header">Create New Antigram</div>
+        <div class="card-body">
+            <div class="form-container">
+                <!-- Template Selection -->
+                <div class="form-group mb-3">
+                    <label for="templateSelect">Select Template:</label>
+                    <select id="templateSelect" required class="form-select">
+                        <option value="">-- Select a Template --</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="lotNumber">Lot Number:</label>
+                    <input type="text" id="lotNumber" required class="form-control" />
+                </div>
+                <div class="form-group mb-3">
+                    <label for="expirationDate">Expiration Date:</label>
+                    <input type="date" id="expirationDate" required class="form-control" />
+                </div>
             </div>
-
-            <!-- Antigram Details -->
-            <div class="form-group">
-                <label for="lotNumber">Lot Number:</label>
-                <input type="text" id="lotNumber" required />
-            </div>
-
-            <div class="form-group">
-                <label for="expirationDate">Expiration Date:</label>
-                <input type="date" id="expirationDate" required />
-            </div>
-
-            <button id="create-antigram-btn" class="btn btn-primary">Create Antigram</button>
         </div>
     </div>
 
     <!-- Antigram Reactions Table (Hidden until template selected) -->
-    <div id="reactions-section" class="reactions-section" style="display: none;">
-        <h3>Antigram Cell Reactions</h3>
-        <div class="table-container">
-            <table id="antigram-table">
-                <thead id="antigram-header"></thead>
-                <tbody id="antigram-body"></tbody>
-            </table>
+    <div id="reactions-section" class="card mb-4 reactions-section" style="display: none;">
+        <div class="card-header">Antigram Cell Reactions</div>
+        <div class="card-body">
+            <div class="table-container">
+                <table id="antigram-table" class="table table-bordered table-striped align-middle text-center">
+                    <thead id="antigram-header"></thead>
+                    <tbody id="antigram-body"></tbody>
+                </table>
+            </div>
+            <div id="antigen-instruction" class="antigen-instruction"></div>
+            <button id="save-antigram-btn" class="btn btn-success" style="display: none;" disabled>Save Antigram</button>
         </div>
-        <button id="save-antigram-btn" class="btn btn-success" style="display: none;" disabled>Save Antigram</button>
     </div>
 
     <!-- View/Edit Antigrams Section -->
-    <div class="view-section">
-        <h3>Existing Antigrams</h3>
-        <div class="search-container">
-            <input type="text" id="searchAntigrams" placeholder="Search by lot number..." />
-            <button id="searchBtn" class="btn btn-secondary">Search</button>
-            <button id="clearSearchBtn" class="btn btn-outline">Clear</button>
-        </div>
-        
-        <div class="table-container">
-            <table id="antigrams-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Template Name</th>
-                        <th>Lot Number</th>
-                        <th>Expiration Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="antigrams-body"></tbody>
-            </table>
+    <div class="card mb-4 view-section">
+        <div class="card-header">Existing Antigrams</div>
+        <div class="card-body">
+            <div class="search-container mb-3">
+                <input type="text" id="searchAntigrams" placeholder="Search by lot number..." class="form-control d-inline-block w-auto" />
+                <button id="searchBtn" class="btn btn-secondary ms-2">Search</button>
+                <button id="clearSearchBtn" class="btn btn-outline ms-2">Clear</button>
+            </div>
+            <div class="table-container">
+                <table id="antigrams-table" class="table table-bordered table-striped align-middle text-center existing-antigrams-table">
+                    <thead>
+                        <tr>
+                            <th>Lot Number</th>
+                            <th>Expiration Date</th>
+                            <th>Template Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="antigrams-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -82,14 +131,14 @@
         <div class="modal-body">
             <div class="form-group">
                 <label for="editLotNumber">Lot Number:</label>
-                <input type="text" id="editLotNumber" required />
+                <input type="text" id="editLotNumber" required class="form-control" />
             </div>
             <div class="form-group">
                 <label for="editExpirationDate">Expiration Date:</label>
-                <input type="date" id="editExpirationDate" required />
+                <input type="date" id="editExpirationDate" required class="form-control" />
             </div>
             <div class="table-container">
-                <table id="edit-antigram-table">
+                <table id="edit-antigram-table" class="table table-bordered table-striped align-middle text-center">
                     <thead id="edit-antigram-header"></thead>
                     <tbody id="edit-antigram-body"></tbody>
                 </table>

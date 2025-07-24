@@ -7,22 +7,28 @@ document.addEventListener("DOMContentLoaded", function () {
     loadTemplates();
     loadAntigrams();
 
-    // Create antigram functionality
-    document.getElementById("templateSelect").addEventListener("change", onTemplateSelect);
-    document.getElementById("create-antigram-btn").addEventListener("click", createAntigram);
-    document.getElementById("save-antigram-btn").addEventListener("click", saveAntigram);
+    // Template selection
+    const templateSelect = document.getElementById("templateSelect");
+    if (templateSelect) templateSelect.addEventListener("change", onTemplateSelect);
+
+    // Save antigram
+    const saveAntigramBtn = document.getElementById("save-antigram-btn");
+    if (saveAntigramBtn) saveAntigramBtn.addEventListener("click", saveAntigram);
 
     // Search functionality
-    document.getElementById("searchBtn").addEventListener("click", searchAntigrams);
-    document.getElementById("clearSearchBtn").addEventListener("click", clearSearch);
-    document.getElementById("searchAntigrams").addEventListener("keypress", function(e) {
+    const searchBtn = document.getElementById("searchBtn");
+    if (searchBtn) searchBtn.addEventListener("click", searchAntigrams);
+    const clearSearchBtn = document.getElementById("clearSearchBtn");
+    if (clearSearchBtn) clearSearchBtn.addEventListener("click", clearSearch);
+    const searchAntigramsInput = document.getElementById("searchAntigrams");
+    if (searchAntigramsInput) searchAntigramsInput.addEventListener("keypress", function(e) {
         if (e.key === "Enter") searchAntigrams();
     });
 
     // Modal functionality
-    document.querySelector(".close").addEventListener("click", closeModal);
-    document.getElementById("cancelEditBtn").addEventListener("click", closeModal);
-    document.getElementById("saveEditBtn").addEventListener("click", saveEditChanges);
+    setupModalCloseListeners();
+    const saveEditBtn = document.getElementById("saveEditBtn");
+    if (saveEditBtn) saveEditBtn.addEventListener("click", saveEditChanges);
 
     // Close modal when clicking outside
     window.addEventListener("click", function(event) {
@@ -138,8 +144,8 @@ function generateAntigramTable(template) {
                         data-cell="${cellNumber}" 
                         data-antigen="${antigen}" 
                         maxlength="1" 
-                        placeholder="+" 
                         oninput="validateReactionInput(this)"
+                        autocomplete="off"
                     />
                 </td>`;
         });
@@ -148,17 +154,52 @@ function generateAntigramTable(template) {
     });
     body.innerHTML = bodyHtml;
 
+    // Add instruction text below the table
+    const instructionDiv = document.getElementById('antigen-instruction');
+    if (instructionDiv) {
+        instructionDiv.innerHTML = '<span>💡 <strong>Valid inputs:</strong> Enter "0" for negative reactions or "+" for positive reactions only.</span>';
+    }
+
     // Show the save button
     document.getElementById("save-antigram-btn").style.display = "block";
+
+    // Add input highlight logic
+    document.querySelectorAll('.reaction-input').forEach(input => {
+        input.addEventListener('input', function() {
+            highlightAntigenInput(input);
+        });
+        input.addEventListener('blur', function() {
+            highlightAntigenInput(input);
+        });
+        highlightAntigenInput(input);
+    });
+}
+
+function highlightAntigenInput(input) {
+    const val = input.value.trim();
+    if (val === "0" || val === "+") {
+        input.style.borderColor = '#007bff';
+        input.style.boxShadow = '0 0 0 0.2rem rgba(0,123,255,.25)';
+        input.style.backgroundColor = '#e7f3ff';
+    } else if (val === "") {
+        input.style.borderColor = '#ccc';
+        input.style.boxShadow = '';
+        input.style.backgroundColor = '#fff';
+    } else {
+        input.style.borderColor = '#dc3545';
+        input.style.boxShadow = '0 0 0 0.2rem rgba(220,53,69,.25)';
+        input.style.backgroundColor = '#fff';
+    }
 }
 
 // Validation
 function validateReactionInput(input) {
     const validValues = ["+", "0"];
     if (!validValues.includes(input.value)) {
-        input.value = ""; // Clear invalid input
-        alert("Only + or 0 are allowed.");
+        // No alert, just highlight as invalid
+        input.value = input.value.replace(/[^+0]/g, ''); // Remove invalid chars
     }
+    highlightAntigenInput(input);
     checkAllFieldsFilled();
 }
 
@@ -174,19 +215,40 @@ function checkAllFieldsFilled() {
     document.getElementById("save-antigram-btn").disabled = !allFilled;
 }
 
+// Utility function to show alerts
+function showAlert(message, type = 'success', autoDismiss = false) {
+    const alertArea = document.getElementById('alert-area');
+    if (!alertArea) return;
+    const alertId = 'alert-' + Date.now();
+    alertArea.innerHTML = `
+        <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    if (autoDismiss) {
+        setTimeout(() => {
+            const alertElem = document.getElementById(alertId);
+            if (alertElem) alertElem.classList.remove('show');
+        }, 7000);
+    }
+}
+
 // Save Antigram
 function saveAntigram() {
+    console.log('Save Antigram button clicked');
     let templateId = document.getElementById("templateSelect").value;
     let lotNumber = document.getElementById("lotNumber").value;
     let expirationDate = document.getElementById("expirationDate").value;
 
+    // Validation: check required fields
     if (!templateId || !lotNumber || !expirationDate) {
-        alert("Please complete all fields before saving.");
+        showAlert('Please complete all fields: Template, Lot Number, and Expiration Date.', 'danger', false);
         return;
     }
 
     if (!selectedTemplate) {
-        alert("Please select a template first.");
+        showAlert('Please select a template first.', 'danger', false);
         return;
     }
 
@@ -210,7 +272,7 @@ function saveAntigram() {
     });
 
     if (!allFieldsFilled) {
-        alert("Please complete all reaction inputs before saving.");
+        showAlert('Please complete all reaction inputs before saving.', 'danger', false);
         return;
     }
 
@@ -231,17 +293,16 @@ function saveAntigram() {
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert("Error saving antigram: " + data.error);
+            showAlert('Error saving antigram: ' + data.error, 'danger', false);
         } else {
-            alert("Antigram saved successfully!");
+            showAlert('Antigram saved successfully!', 'success', true);
             // Reset form and reload antigrams
             resetForm();
             loadAntigrams();
         }
     })
     .catch(error => {
-        console.error("Error creating antigram:", error);
-        alert("Failed to save antigram.");
+        showAlert('Failed to save antigram.', 'danger', false);
     });
 }
 
@@ -261,17 +322,35 @@ function displayAntigrams(antigrams) {
     tbody.innerHTML = "";
 
     if (antigrams.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='5' class='no-data'>No antigrams found</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='4' class='no-data'>No antigrams found</td></tr>";
         return;
     }
 
+    // Sort by expiration date (descending), then lot number (descending)
+    antigrams.sort((a, b) => {
+        const dateA = new Date(a.expiration_date);
+        const dateB = new Date(b.expiration_date);
+        if (dateA > dateB) return -1;
+        if (dateA < dateB) return 1;
+        // If same expiration, sort by lot number descending
+        if (a.lot_number > b.lot_number) return -1;
+        if (a.lot_number < b.lot_number) return 1;
+        return 0;
+    });
+
     antigrams.forEach(antigram => {
+        // Format expiration date as MM/DD/YYYY
+        const expirationDate = new Date(antigram.expiration_date);
+        const formattedDate = expirationDate.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+        });
         let row = document.createElement("tr");
         row.innerHTML = `
-            <td>${antigram.id}</td>
-            <td>${antigram.template_name || antigram.name}</td>
             <td>${antigram.lot_number}</td>
-            <td>${antigram.expiration_date}</td>
+            <td>${formattedDate}</td>
+            <td>${antigram.template_name || antigram.name}</td>
             <td>
                 <button class="btn btn-sm btn-primary" onclick="editAntigram(${antigram.id})">Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteAntigram(${antigram.id})">Delete</button>
@@ -316,6 +395,7 @@ function editAntigram(antigramId) {
         });
 }
 
+// Edit Modal Table Highlighting
 function populateEditModal(antigram) {
     // Populate form fields
     document.getElementById("editLotNumber").value = antigram.lot_number;
@@ -361,6 +441,7 @@ function populateEditModal(antigram) {
                         maxlength="1" 
                         value="${reaction}"
                         oninput="validateEditReactionInput(this)"
+                        autocomplete="off"
                     />
                 </td>`;
         });
@@ -368,14 +449,26 @@ function populateEditModal(antigram) {
         bodyHtml += "</tr>";
     });
     body.innerHTML = bodyHtml;
+
+    // Add input highlight logic for edit modal
+    document.querySelectorAll('.edit-reaction-input').forEach(input => {
+        input.addEventListener('input', function() {
+            highlightAntigenInput(input);
+        });
+        input.addEventListener('blur', function() {
+            highlightAntigenInput(input);
+        });
+        highlightAntigenInput(input);
+    });
 }
 
 function validateEditReactionInput(input) {
     const validValues = ["+", "0"];
     if (!validValues.includes(input.value)) {
         input.value = ""; // Clear invalid input
-        alert("Only + or 0 are allowed.");
+        showAlert("Only + or 0 are allowed.", 'danger', false);
     }
+    highlightAntigenInput(input);
 }
 
 function saveEditChanges() {
@@ -385,7 +478,7 @@ function saveEditChanges() {
     let expirationDate = document.getElementById("editExpirationDate").value;
 
     if (!lotNumber || !expirationDate) {
-        alert("Please complete all fields before saving.");
+        showAlert("Please complete all fields before saving.", 'danger', false);
         return;
     }
 
@@ -409,7 +502,7 @@ function saveEditChanges() {
     });
 
     if (!allFieldsFilled) {
-        alert("Please complete all reaction inputs before saving.");
+        showAlert("Please complete all reaction inputs before saving.", 'danger', false);
         return;
     }
 
@@ -427,16 +520,15 @@ function saveEditChanges() {
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert("Error updating antigram: " + data.error);
+            showAlert("Error updating antigram: " + data.error, 'danger', false);
         } else {
-            alert("Antigram updated successfully!");
+            showAlert("Antigram updated successfully!", 'success', true);
             closeModal();
             loadAntigrams();
         }
     })
     .catch(error => {
-        console.error("Error updating antigram:", error);
-        alert("Failed to update antigram.");
+        showAlert("Failed to update antigram.", 'danger', false);
     });
 }
 
@@ -466,8 +558,22 @@ function deleteAntigram(antigramId) {
 
 // Modal functionality
 function closeModal() {
-    document.getElementById("editModal").style.display = "none";
+    const modal = document.getElementById("editModal");
+    if (modal) modal.style.display = "none";
     currentEditingAntigram = null;
+}
+
+// Ensure modal close buttons work
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupModalCloseListeners);
+} else {
+    setupModalCloseListeners();
+}
+function setupModalCloseListeners() {
+    const closeBtn = document.querySelector("#editModal .close");
+    const cancelBtn = document.getElementById("cancelEditBtn");
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (cancelBtn) cancelBtn.onclick = closeModal;
 }
 
 // Utility functions
