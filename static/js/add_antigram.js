@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Save antigram
     const saveAntigramBtn = document.getElementById("save-antigram-btn");
     if (saveAntigramBtn) saveAntigramBtn.addEventListener("click", saveAntigram);
+    
+    // Add real-time validation for form fields
+    setupFormValidation();
 
     // Search functionality
     const searchBtn = document.getElementById("searchBtn");
@@ -38,6 +41,43 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
+
+// Form Validation Setup
+function setupFormValidation() {
+    const templateSelect = document.getElementById("templateSelect");
+    const lotNumberInput = document.getElementById("lotNumber");
+    const expirationDateInput = document.getElementById("expirationDate");
+    
+    // Add real-time validation listeners
+    if (templateSelect) {
+        templateSelect.addEventListener('input', validateField);
+        templateSelect.addEventListener('blur', validateField);
+    }
+    
+    if (lotNumberInput) {
+        lotNumberInput.addEventListener('input', validateField);
+        lotNumberInput.addEventListener('blur', validateField);
+    }
+    
+    if (expirationDateInput) {
+        expirationDateInput.addEventListener('input', validateField);
+        expirationDateInput.addEventListener('blur', validateField);
+    }
+}
+
+function validateField(event) {
+    const field = event.target;
+    
+    // Remove existing validation styling
+    field.classList.remove('is-valid', 'is-invalid');
+    
+    // Check if field is valid
+    if (field.checkValidity()) {
+        field.classList.add('is-valid');
+    } else {
+        field.classList.add('is-invalid');
+    }
+}
 
 // Template Management
 function loadTemplates() {
@@ -237,15 +277,23 @@ function showAlert(message, type = 'success', autoDismiss = false) {
 // Save Antigram
 function saveAntigram() {
     console.log('Save Antigram button clicked');
-    let templateId = document.getElementById("templateSelect").value;
-    let lotNumber = document.getElementById("lotNumber").value;
-    let expirationDate = document.getElementById("expirationDate").value;
-
-    // Validation: check required fields
-    if (!templateId || !lotNumber || !expirationDate) {
-        showAlert('Please complete all fields: Template, Lot Number, and Expiration Date.', 'danger', false);
+    
+    // Get form elements
+    const form = document.querySelector('.form-container');
+    const templateSelect = document.getElementById("templateSelect");
+    const lotNumberInput = document.getElementById("lotNumber");
+    const expirationDateInput = document.getElementById("expirationDate");
+    
+    // Use HTML5 form validation
+    if (!form.checkValidity()) {
+        // Trigger browser validation UI
+        form.reportValidity();
         return;
     }
+    
+    let templateId = templateSelect.value;
+    let lotNumber = lotNumberInput.value;
+    let expirationDate = expirationDateInput.value;
 
     if (!selectedTemplate) {
         showAlert('Please select a template first.', 'danger', false);

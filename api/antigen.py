@@ -95,10 +95,17 @@ def register_antigen_routes(app, db_session):
                 {"name": "e", "system": "Rh"},
                 {"name": "C", "system": "Rh"},
                 {"name": "c", "system": "Rh"},
+                {"name": "f", "system": "Rh"},  # Rh composite antigen
+                {"name": "Cw", "system": "Rh"},  # Rh variant
+                {"name": "V", "system": "Rh"},   # Rh variant
                 
                 # Kell System
                 {"name": "K", "system": "Kell"},
                 {"name": "k", "system": "Kell"},
+                {"name": "Kpa", "system": "Kell"},  # Kell variant
+                {"name": "Kpb", "system": "Kell"},  # Kell variant
+                {"name": "Jsa", "system": "Kell"},  # Kell variant
+                {"name": "Jsb", "system": "Kell"},  # Kell variant
                 
                 # Duffy System
                 {"name": "Fya", "system": "Duffy"},
@@ -118,8 +125,18 @@ def register_antigen_routes(app, db_session):
                 {"name": "Lea", "system": "Lewis"},
                 {"name": "Leb", "system": "Lewis"},
                 
+                # Lutheran System
+                {"name": "Lua", "system": "Lutheran"},
+                {"name": "Lub", "system": "Lutheran"},
+                
                 # P System
-                {"name": "P", "system": "P"}
+                {"name": "P", "system": "P"},
+                
+                # Xg System
+                {"name": "Xga", "system": "Xg"},
+                
+                # Wright System
+                {"name": "Wra", "system": "Wright"}
             ]
 
             # Clear existing antigens
@@ -159,6 +176,10 @@ def register_antigen_routes(app, db_session):
                 # Kell System
                 'K': ['k'],
                 'k': ['K'],
+                'Kpa': ['Kpb'],
+                'Kpb': ['Kpa'],
+                'Jsa': ['Jsb'],
+                'Jsb': ['Jsa'],
                 
                 # Duffy System
                 'Fya': ['Fyb'],
@@ -182,11 +203,10 @@ def register_antigen_routes(app, db_session):
                 'Lub': ['Lua'],
                 'Lua': ['Lub'],
                 
-                # Kell Extended
-                'Kpa': ['Kpb'],
-                'Kpb': ['Kpa'],
-                'Jsa': ['Jsb'],
-                'Jsb': ['Jsa']
+                # Rh System (additional variants)
+                'Cw': ['C', 'c'],
+                'V': ['D', 'E', 'e'],
+                'f': ['C', 'c', 'E', 'e']
             }
             
             # Filter pairs to only include antigens that exist in the database

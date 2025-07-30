@@ -15,6 +15,32 @@
     .alert {
         margin-top: 1rem;
     }
+    
+    /* Custom validation styling to match antigram management */
+    .form-control.is-invalid,
+    .form-select.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    
+    .form-control.is-valid,
+    .form-select.is-valid {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    }
+    
+    /* Remove default browser validation styling */
+    .form-control:invalid,
+    .form-select:invalid {
+        background-image: none;
+    }
+    
+    /* Custom tooltip styling for HTML5 validation */
+    .form-control:invalid:focus,
+    .form-select:invalid:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
 </style>
 {% endblock %}
 
@@ -28,18 +54,22 @@
             <h4>Create New Template</h4>
         </div>
         <div class="card-body">
-            <form id="templateForm">
+            <form id="templateForm" novalidate>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label for="templateName" class="form-label">Template Name</label>
-                            <input type="text" class="form-control" id="templateName" required>
+                            <input type="text" class="form-control" id="templateName" required 
+                                   oninvalid="this.setCustomValidity('Please fill out this field')" 
+                                   oninput="this.setCustomValidity('')">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label for="cellCount" class="form-label">Cell Count</label>
-                            <input type="number" class="form-control" id="cellCount" min="1" required>
+                            <input type="number" class="form-control" id="cellCount" min="1" required
+                                   oninvalid="this.setCustomValidity('Please fill out this field')" 
+                                   oninput="this.setCustomValidity('')">
                         </div>
                     </div>
                 </div>
@@ -71,7 +101,9 @@
                             </thead>
                         </table>
                     </div>
-                    <input type="hidden" id="antigenOrder" name="antigenOrder" required>
+                    <input type="hidden" id="antigenOrder" name="antigenOrder" required
+                           oninvalid="this.setCustomValidity('Please select at least one antigen')" 
+                           oninput="this.setCustomValidity('')">
                     <div class="form-text">Drag and drop columns to set the antigen order. Only valid antigens are shown. System names are shown above their antigens.</div>
                 </div>
                 

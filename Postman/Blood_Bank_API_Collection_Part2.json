@@ -1,0 +1,220 @@
+{
+	"name": "Antigram Management",
+	"description": "CRUD operations for antigrams. Antigrams are blood cell panels with antigen reactions that are used for antibody identification.",
+	"item": [
+		{
+			"name": "Get All Antigrams",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/antigrams",
+					"host": ["{{base_url}}"],
+					"path": ["api", "antigrams"]
+				},
+				"description": "Retrieve all antigrams. Can be filtered by lot number using the search query parameter."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/antigrams",
+							"host": ["{{base_url}}"],
+							"path": ["api", "antigrams"]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"cookie": [],
+					"body": "[\n  {\n    \"id\": 1752694582796,\n    \"lot_number\": \"ABC123\",\n    \"template_name\": \"Standard Panel\",\n    \"expiration_date\": \"2024-12-31\",\n    \"cell_count\": 10\n  },\n  {\n    \"id\": 1752694844028,\n    \"lot_number\": \"XYZ789\",\n    \"template_name\": \"Extended Panel\",\n    \"expiration_date\": \"2024-11-30\",\n    \"cell_count\": 16\n  }\n]"
+				}
+			]
+		},
+		{
+			"name": "Get Antigram by ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/antigrams/{{antigram_id}}",
+					"host": ["{{base_url}}"],
+					"path": ["api", "antigrams", "{{antigram_id}}"]
+				},
+				"description": "Retrieve a specific antigram by ID with all cell reactions."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/antigrams/1752694582796",
+							"host": ["{{base_url}}"],
+							"path": ["api", "antigrams", "1752694582796"]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"cookie": [],
+					"body": "{\n  \"id\": 1752694582796,\n  \"name\": \"Standard Panel\",\n  \"lot_number\": \"ABC123\",\n  \"expiration_date\": \"2024-12-31\",\n  \"antigen_order\": [\"D\", \"C\", \"c\", \"E\", \"e\", \"K\", \"k\", \"Fya\", \"Fyb\", \"Jka\", \"Jkb\", \"S\", \"s\", \"M\", \"N\", \"P\", \"Lea\", \"Leb\"],\n  \"cells\": [\n    {\n      \"cell_number\": \"1\",\n      \"reactions\": {\n        \"D\": \"+\",\n        \"C\": \"+\",\n        \"c\": \"0\",\n        \"E\": \"0\",\n        \"e\": \"+\",\n        \"K\": \"0\",\n        \"k\": \"+\",\n        \"Fya\": \"+\",\n        \"Fyb\": \"0\",\n        \"Jka\": \"+\",\n        \"Jkb\": \"0\",\n        \"S\": \"+\",\n        \"s\": \"0\",\n        \"M\": \"+\",\n        \"N\": \"0\",\n        \"P\": \"+\",\n        \"Lea\": \"0\",\n        \"Leb\": \"+\"\n      }\n    }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Create Antigram",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"template_id\": 1752694582796,\n  \"lot_number\": \"TEST123\",\n  \"expiration_date\": \"2024-12-31\",\n  \"cells\": [\n    {\n      \"cell_number\": \"1\",\n      \"reactions\": {\n        \"D\": \"+\",\n        \"C\": \"+\",\n        \"c\": \"0\",\n        \"E\": \"0\",\n        \"e\": \"+\"\n      }\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/antigrams",
+					"host": ["{{base_url}}"],
+					"path": ["api", "antigrams"]
+				},
+				"description": "Create a new antigram using a template and cell reaction data."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"template_id\": 1752694582796,\n  \"lot_number\": \"TEST123\",\n  \"expiration_date\": \"2024-12-31\",\n  \"cells\": [\n    {\n      \"cell_number\": \"1\",\n      \"reactions\": {\n        \"D\": \"+\",\n        \"C\": \"+\",\n        \"c\": \"0\",\n        \"E\": \"0\",\n        \"e\": \"+\"\n      }\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/antigrams",
+							"host": ["{{base_url}}"],
+							"path": ["api", "antigrams"]
+						}
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"cookie": [],
+					"body": "{\n  \"message\": \"Antigram created successfully\",\n  \"antigram_id\": 1752694582797\n}"
+				}
+			]
+		},
+		{
+			"name": "Update Antigram",
+			"request": {
+				"method": "PUT",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"lot_number\": \"UPDATED123\",\n  \"expiration_date\": \"2025-01-31\",\n  \"cells\": [\n    {\n      \"cell_number\": \"1\",\n      \"reactions\": {\n        \"D\": \"+\",\n        \"C\": \"+\",\n        \"c\": \"0\",\n        \"E\": \"0\",\n        \"e\": \"+\"\n      }\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/antigrams/{{antigram_id}}",
+					"host": ["{{base_url}}"],
+					"path": ["api", "antigrams", "{{antigram_id}}"]
+				},
+				"description": "Update an existing antigram by ID."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lot_number\": \"UPDATED123\",\n  \"expiration_date\": \"2025-01-31\",\n  \"cells\": [\n    {\n      \"cell_number\": \"1\",\n      \"reactions\": {\n        \"D\": \"+\",\n        \"C\": \"+\",\n        \"c\": \"0\",\n        \"E\": \"0\",\n        \"e\": \"+\"\n      }\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/antigrams/1752694582796",
+							"host": ["{{base_url}}"],
+							"path": ["api", "antigrams", "1752694582796"]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"cookie": [],
+					"body": "{\n  \"message\": \"Antigram updated successfully\"\n}"
+				}
+			]
+		},
+		{
+			"name": "Delete Antigram",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/antigrams/{{antigram_id}}",
+					"host": ["{{base_url}}"],
+					"path": ["api", "antigrams", "{{antigram_id}}"]
+				},
+				"description": "Delete an antigram by ID."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/antigrams/1752694582796",
+							"host": ["{{base_url}}"],
+							"path": ["api", "antigrams", "1752694582796"]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"cookie": [],
+					"body": "{\n  \"message\": \"Antigram deleted successfully\"\n}"
+				}
+			]
+		},
+		{
+			"name": "Delete All Antigrams",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/antigrams/delete-all-antigrams",
+					"host": ["{{base_url}}"],
+					"path": ["api", "antigrams", "delete-all-antigrams"]
+				},
+				"description": "Delete all antigrams from the system. This action cannot be undone."
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/antigrams/delete-all-antigrams",
+							"host": ["{{base_url}}"],
+							"path": ["api", "antigrams", "delete-all-antigrams"]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"cookie": [],
+					"body": "{\n  \"message\": \"All antigrams deleted successfully\"\n}"
+				}
+			]
+		}
+	]
+} 

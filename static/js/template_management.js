@@ -10,8 +10,42 @@ function setupFormValidation() {
     document.getElementById('cellRangeStart').addEventListener('input', validateCellRange);
     document.getElementById('cellRangeEnd').addEventListener('input', validateCellRange);
     
+    // Add validation for required fields
+    const templateName = document.getElementById('templateName');
+    const cellCount = document.getElementById('cellCount');
+    const antigenOrder = document.getElementById('antigenOrder');
+    
+    if (templateName) {
+        templateName.addEventListener('input', validateField);
+        templateName.addEventListener('blur', validateField);
+    }
+    
+    if (cellCount) {
+        cellCount.addEventListener('input', validateField);
+        cellCount.addEventListener('blur', validateField);
+    }
+    
+    if (antigenOrder) {
+        antigenOrder.addEventListener('input', validateField);
+        antigenOrder.addEventListener('blur', validateField);
+    }
+    
     // Form submission
     document.getElementById('templateForm').addEventListener('submit', createTemplate);
+}
+
+function validateField(event) {
+    const field = event.target;
+    
+    // Remove existing validation styling
+    field.classList.remove('is-valid', 'is-invalid');
+    
+    // Check if field is valid
+    if (field.checkValidity()) {
+        field.classList.add('is-valid');
+    } else {
+        field.classList.add('is-invalid');
+    }
 }
 
 function validateCellRange() {
@@ -71,6 +105,16 @@ function validateCellRange() {
 function createTemplate(e) {
     e.preventDefault();
     
+    // Get form element
+    const form = document.getElementById('templateForm');
+    
+    // Use HTML5 form validation
+    if (!form.checkValidity()) {
+        // Trigger browser validation UI
+        form.reportValidity();
+        return;
+    }
+    
     // Validate cell range before submission
     if (!validateCellRange()) {
         return;
@@ -82,17 +126,14 @@ function createTemplate(e) {
     const rangeStart = parseInt(document.getElementById('cellRangeStart').value) || 0;
     const rangeEnd = parseInt(document.getElementById('cellRangeEnd').value) || 0;
     
-    // Validate required fields
-    if (!name || !cellCount || !antigenOrderText) {
-        alert('Please fill in all required fields.');
-        return;
-    }
-    
     // Parse antigen order
     const antigenOrder = antigenOrderText.split(',').map(antigen => antigen.trim()).filter(antigen => antigen.length > 0);
     
     if (antigenOrder.length === 0) {
-        alert('Please enter at least one antigen.');
+        // Set custom validation message for antigen order
+        const antigenOrderField = document.getElementById('antigenOrder');
+        antigenOrderField.setCustomValidity('Please select at least one antigen');
+        antigenOrderField.reportValidity();
         return;
     }
     
@@ -339,6 +380,12 @@ function renderAntigenOrderTable() {
             antigenOrder.splice(idx, 1);
             renderAntigenOrderTable();
             setupSortableAntigenOrder();
+            
+            // Trigger validation after removing antigen
+            const antigenOrderField = document.getElementById('antigenOrder');
+            if (antigenOrderField) {
+                validateField({ target: antigenOrderField });
+            }
         };
         td.appendChild(btn);
         antigenDeleteRow.appendChild(td);
@@ -428,7 +475,13 @@ function isSystemSplit() {
 }
 
 function updateAntigenOrderInput() {
-    document.getElementById('antigenOrder').value = antigenOrder.join(',');
+    const antigenOrderField = document.getElementById('antigenOrder');
+    antigenOrderField.value = antigenOrder.join(',');
+    
+    // Trigger validation
+    if (antigenOrderField) {
+        validateField({ target: antigenOrderField });
+    }
 } 
 
 // Add styles for highlighting and hand cursor

@@ -218,11 +218,30 @@ def register_antigram_routes(app, db_session):
                     "cell_number": str(cell_number),  # Ensure cell_number is string
                     "reactions": matrix.loc[cell_number].to_dict()
                 })
+            
+            # Get antigen order from the template that was used to create this antigram
+            template_name = metadata["template_name"]
+            antigen_order = []
+            
+            # Try to find the template and get its antigen order
+            all_templates = template_manager.get_all_templates()
+            for template in all_templates:
+                if template["name"] == template_name:
+                    antigen_order = template.get("antigen_order", [])
+                    break
+            
+            # If template not found, fall back to metadata or extract from matrix
+            if not antigen_order:
+                antigen_order = metadata.get("antigens", [])
+                if not antigen_order and matrix is not None and not matrix.empty:
+                    antigen_order = list(matrix.columns)
+            
             return jsonify({
                 "id": id,
                 "name": metadata["template_name"],
                 "lot_number": metadata["lot_number"],
                 "expiration_date": str(metadata["expiration_date"]),
+                "antigen_order": antigen_order,  # Use template's antigen order
                 "cells": cells
             }), 200
         except Exception as e:

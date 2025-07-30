@@ -45,6 +45,42 @@
     .existing-antigrams-table {
         font-size: 1.13em;
     }
+    
+    /* System header styling to match cell finder */
+    .antigen-system-header {
+        background-color: #e9ecef !important;
+        font-weight: bold;
+        color: #495057 !important;
+        border-bottom: 2px solid #dee2e6;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    /* Custom validation styling to match template management */
+    .form-control.is-invalid,
+    .form-select.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    
+    .form-control.is-valid,
+    .form-select.is-valid {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    }
+    
+    /* Remove default browser validation styling */
+    .form-control:invalid,
+    .form-select:invalid {
+        background-image: none;
+    }
+    
+    /* Custom tooltip styling for HTML5 validation */
+    .form-control:invalid:focus,
+    .form-select:invalid:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
 </style>
 {% endblock %}
 
@@ -60,23 +96,23 @@
     <div class="card mb-4 create-section">
         <div class="card-header">Create New Antigram</div>
         <div class="card-body">
-            <div class="form-container">
+            <form class="form-container" novalidate>
                 <!-- Template Selection -->
                 <div class="form-group mb-3">
                     <label for="templateSelect">Select Template:</label>
-                    <select id="templateSelect" required class="form-select">
+                    <select id="templateSelect" required class="form-select" oninvalid="this.setCustomValidity('Please select a template')" oninput="this.setCustomValidity('')">
                         <option value="">-- Select a Template --</option>
                     </select>
                 </div>
                 <div class="form-group mb-3">
                     <label for="lotNumber">Lot Number:</label>
-                    <input type="text" id="lotNumber" required class="form-control" />
+                    <input type="text" id="lotNumber" required class="form-control" oninvalid="this.setCustomValidity('Please fill out this field')" oninput="this.setCustomValidity('')" />
                 </div>
                 <div class="form-group mb-3">
                     <label for="expirationDate">Expiration Date:</label>
-                    <input type="date" id="expirationDate" required class="form-control" />
+                    <input type="date" id="expirationDate" required class="form-control" oninvalid="this.setCustomValidity('Please fill out this field')" oninput="this.setCustomValidity('')" />
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -86,7 +122,10 @@
         <div class="card-body">
             <div class="table-container">
                 <table id="antigram-table" class="table table-bordered table-striped align-middle text-center">
-                    <thead id="antigram-header"></thead>
+                    <thead id="antigram-header">
+                        <!-- System header row will be added here -->
+                        <!-- Antigen header row will be added here -->
+                    </thead>
                     <tbody id="antigram-body"></tbody>
                 </table>
             </div>
