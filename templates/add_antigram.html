@@ -3,7 +3,7 @@
 {% block head %}
 <style>
     .main-container {
-        max-width: 70% !important;
+        max-width: 95% !important; /* Increased from 70% to make it wider */
         margin: 0 auto;
     }
     .alert-area {
@@ -80,6 +80,115 @@
     .form-select:invalid:focus {
         border-color: #dc3545;
         box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    
+    /* Keyboard navigation styles */
+    .reaction-input:focus {
+        outline: 2px solid #007bff !important;
+        outline-offset: -2px;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+        background-color: #fff !important;
+    }
+    
+    .reaction-input.nav-highlight {
+        background-color: #fff3cd !important;
+        border-color: #ffc107 !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
+    }
+    
+    /* Enhanced input styling for better usability */
+    .reaction-input,
+    .edit-reaction-input {
+        font-size: 1.4em !important;
+        font-weight: bold !important;
+        width: 50px !important;
+        height: 50px !important;
+        padding: 8px !important;
+        margin: 2px !important;
+        border: 2px solid #ddd !important;
+        border-radius: 6px !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+        background-color: #fff !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    
+    .reaction-input:hover,
+    .edit-reaction-input:hover {
+        border-color: #007bff !important;
+        background-color: #f8f9fa !important;
+    }
+    
+    .reaction-input:focus,
+    .edit-reaction-input:focus {
+        border-color: #007bff !important;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+        background-color: #fff !important;
+        transform: scale(1.05) !important;
+    }
+    
+    /* Table cell styling to accommodate larger inputs */
+    .table td {
+        padding: 4px !important;
+        vertical-align: middle !important;
+    }
+    
+    /* Ensure table cells can accommodate the larger inputs */
+    .table td:not(:first-child) {
+        min-width: 60px !important;
+        min-height: 60px !important;
+    }
+    
+    /* Validation state styling */
+    .reaction-input.valid-input,
+    .edit-reaction-input.valid-input {
+        border-color: #007bff !important;
+        background-color: #e7f3ff !important;
+        font-weight: bold !important;
+    }
+    
+    /* Specific text colors for valid inputs */
+    .reaction-input.valid-input[value="0"],
+    .edit-reaction-input.valid-input[value="0"] {
+        color: #000000 !important; /* Black text for 0 */
+    }
+    
+    .reaction-input.valid-input[value="+"],
+    .edit-reaction-input.valid-input[value="+"] {
+        color: #6c757d !important; /* Light grey text for + */
+    }
+    
+    .reaction-input.invalid-input,
+    .edit-reaction-input.invalid-input {
+        border-color: #dc3545 !important;
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+        font-weight: bold !important;
+    }
+    
+    .reaction-input.empty-input,
+    .edit-reaction-input.empty-input {
+        border-color: #ddd !important;
+        background-color: #fff !important;
+        color: #000 !important;
+    }
+    
+    /* System border styling for visual separation */
+    .system-border-left {
+        border-left: 3px solid #495057 !important;
+    }
+    
+    .system-border-right {
+        border-right: 3px solid #495057 !important;
+    }
+    
+    /* Header system borders */
+    .antigen-system-header.system-border-left {
+        border-left: 3px solid #495057 !important;
+    }
+    
+    .antigen-system-header.system-border-right {
+        border-right: 3px solid #495057 !important;
     }
 </style>
 {% endblock %}

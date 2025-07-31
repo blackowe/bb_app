@@ -2,6 +2,10 @@
 let selectedTemplate = null;
 let currentEditingAntigram = null;
 let allAntigrams = [];
+let antigenSystemData = {}; // Store antigen system information
+let antigenSystemDataCache = null; // Cache for antigen system data
+let antigenSystemDataCacheTime = null; // Cache timestamp
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 document.addEventListener("DOMContentLoaded", function () {
     loadTemplates();
@@ -41,6 +45,42 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
+
+// Cached antigen system data loader
+async function loadAntigenSystemDataCached() {
+    const now = Date.now();
+    
+    // Check if we have valid cached data
+    if (antigenSystemDataCache && antigenSystemDataCacheTime && 
+        (now - antigenSystemDataCacheTime) < CACHE_DURATION) {
+        console.log("Using cached antigen system data");
+        antigenSystemData = antigenSystemDataCache;
+        return antigenSystemDataCache;
+    }
+    
+    // Cache is invalid or expired, fetch fresh data
+    console.log("Fetching fresh antigen system data");
+    try {
+        const response = await fetch("/api/antigens/valid");
+        const validAntigens = await response.json();
+        
+        // Create antigen system mapping
+        const newAntigenSystemData = {};
+        validAntigens.forEach(antigen => {
+            newAntigenSystemData[antigen.name] = antigen.system;
+        });
+        
+        // Update cache
+        antigenSystemDataCache = newAntigenSystemData;
+        antigenSystemDataCacheTime = now;
+        antigenSystemData = newAntigenSystemData;
+        
+        return newAntigenSystemData;
+    } catch (error) {
+        console.error("Error loading antigen system data:", error);
+        throw error;
+    }
+}
 
 // Form Validation Setup
 function setupFormValidation() {
@@ -96,24 +136,29 @@ function loadTemplates() {
         .catch(error => console.error("Error loading templates:", error));
 }
 
-function onTemplateSelect() {
+async function onTemplateSelect() {
     let templateId = document.getElementById("templateSelect").value;
     if (!templateId) {
         document.getElementById("reactions-section").style.display = "none";
         return;
     }
 
-    fetch(`/api/templates/${templateId}`)
-        .then(response => response.json())
-        .then(template => {
-            selectedTemplate = template;
-            generateAntigramTable(template);
-            document.getElementById("reactions-section").style.display = "block";
-        })
-        .catch(error => {
-            console.error("Error fetching template details:", error);
-            alert("Failed to fetch template details.");
-        });
+    try {
+        // Load template and antigen system data (cached) in parallel
+        const [templateResponse, antigenSystemData] = await Promise.all([
+            fetch(`/api/templates/${templateId}`),
+            loadAntigenSystemDataCached()
+        ]);
+
+        const template = await templateResponse.json();
+
+        selectedTemplate = template;
+        generateAntigramTable(template);
+        document.getElementById("reactions-section").style.display = "block";
+    } catch (error) {
+        console.error("Error fetching template details:", error);
+        alert("Failed to fetch template details.");
+    }
 }
 
 // Create Antigram
@@ -147,13 +192,47 @@ function generateAntigramTable(template) {
     header.innerHTML = "";
     body.innerHTML = "";
 
-    // Create header row with antigen names
-    let headerRow = "<tr><th>Cell #</th>";
-    template.antigen_order.forEach(antigen => {
-        headerRow += `<th>${antigen}</th>`;
+    // Create system header row
+    let systemHeaderRow = "<tr><th>Cell #</th>";
+    let i = 0;
+    let systemBorders = []; // Track where system borders should be
+    
+    while (i < template.antigen_order.length) {
+        const agName = template.antigen_order[i];
+        const sys = antigenSystemData[agName] || 'Unknown';
+        let span = 1;
+        for (let j = i + 1; j < template.antigen_order.length; j++) {
+            const nextAg = template.antigen_order[j];
+            const nextSys = antigenSystemData[nextAg] || 'Unknown';
+            if (nextSys === sys) span++;
+            else break;
+        }
+        
+        // Add border classes for system separation
+        let borderClasses = "antigen-system-header";
+        if (i > 0) borderClasses += " system-border-left";
+        if (i + span < template.antigen_order.length) borderClasses += " system-border-right";
+        
+        systemHeaderRow += `<th colspan="${span}" class="${borderClasses}">${sys}</th>`;
+        
+        // Track border positions for body cells
+        if (i > 0) systemBorders.push(i);
+        if (i + span < template.antigen_order.length) systemBorders.push(i + span);
+        
+        i += span;
+    }
+    systemHeaderRow += "</tr>";
+    header.innerHTML = systemHeaderRow;
+
+    // Create antigen name header row
+    let antigenHeaderRow = "<tr><th>Cell #</th>";
+    template.antigen_order.forEach((antigen, index) => {
+        let borderClasses = "";
+        if (systemBorders.includes(index)) borderClasses = "system-border-left";
+        antigenHeaderRow += `<th class="${borderClasses}">${antigen}</th>`;
     });
-    headerRow += "</tr>";
-    header.innerHTML = headerRow;
+    antigenHeaderRow += "</tr>";
+    header.innerHTML += antigenHeaderRow;
 
     // Populate body with input fields
     let bodyHtml = "";
@@ -175,9 +254,12 @@ function generateAntigramTable(template) {
     cellNumbers.forEach(cellNumber => {
         bodyHtml += `<tr><td>${cellNumber}</td>`; // Cell number column
 
-        template.antigen_order.forEach(antigen => {
+        template.antigen_order.forEach((antigen, index) => {
+            let borderClasses = "";
+            if (systemBorders.includes(index)) borderClasses = "system-border-left";
+            
             bodyHtml += `  
-                <td>
+                <td class="${borderClasses}">
                     <input 
                         type="text" 
                         class="reaction-input" 
@@ -185,6 +267,7 @@ function generateAntigramTable(template) {
                         data-antigen="${antigen}" 
                         maxlength="1" 
                         oninput="validateReactionInput(this)"
+                        onkeydown="handleKeyNavigation(event, this)"
                         autocomplete="off"
                     />
                 </td>`;
@@ -197,7 +280,7 @@ function generateAntigramTable(template) {
     // Add instruction text below the table
     const instructionDiv = document.getElementById('antigen-instruction');
     if (instructionDiv) {
-        instructionDiv.innerHTML = '<span>💡 <strong>Valid inputs:</strong> Enter "0" for negative reactions or "+" for positive reactions only.</span>';
+        instructionDiv.innerHTML = '<span>💡 <strong>Valid inputs:</strong> Enter "0" for negative reactions or "+" for positive reactions only. Use arrow keys to navigate between cells. Larger input boxes for easier data entry.</span>';
     }
 
     // Show the save button
@@ -217,18 +300,82 @@ function generateAntigramTable(template) {
 
 function highlightAntigenInput(input) {
     const val = input.value.trim();
+    
+    // Remove any existing validation classes
+    input.classList.remove('valid-input', 'invalid-input', 'empty-input');
+    
     if (val === "0" || val === "+") {
-        input.style.borderColor = '#007bff';
-        input.style.boxShadow = '0 0 0 0.2rem rgba(0,123,255,.25)';
-        input.style.backgroundColor = '#e7f3ff';
+        input.classList.add('valid-input');
+        input.style.borderColor = '#28a745';
+        input.style.backgroundColor = '#d4edda';
+        input.style.color = '#155724';
     } else if (val === "") {
-        input.style.borderColor = '#ccc';
-        input.style.boxShadow = '';
+        input.classList.add('empty-input');
+        input.style.borderColor = '#ddd';
         input.style.backgroundColor = '#fff';
+        input.style.color = '#000';
     } else {
+        input.classList.add('invalid-input');
         input.style.borderColor = '#dc3545';
-        input.style.boxShadow = '0 0 0 0.2rem rgba(220,53,69,.25)';
-        input.style.backgroundColor = '#fff';
+        input.style.backgroundColor = '#f8d7da';
+        input.style.color = '#721c24';
+    }
+}
+
+// Keyboard navigation function
+function handleKeyNavigation(event, input) {
+    const inputs = Array.from(document.querySelectorAll('.reaction-input'));
+    const currentIndex = inputs.indexOf(input);
+    
+    switch(event.key) {
+        case 'ArrowRight':
+            event.preventDefault();
+            if (currentIndex < inputs.length - 1) {
+                inputs[currentIndex + 1].focus();
+            }
+            break;
+        case 'ArrowLeft':
+            event.preventDefault();
+            if (currentIndex > 0) {
+                inputs[currentIndex - 1].focus();
+            }
+            break;
+        case 'ArrowDown':
+            event.preventDefault();
+            const currentCell = parseInt(input.getAttribute('data-cell'));
+            const currentAntigen = input.getAttribute('data-antigen');
+            const antigenIndex = selectedTemplate.antigen_order.indexOf(currentAntigen);
+            
+            // Find the input in the next cell with the same antigen
+            const nextInput = inputs.find(inp => 
+                parseInt(inp.getAttribute('data-cell')) === currentCell + 1 && 
+                inp.getAttribute('data-antigen') === currentAntigen
+            );
+            if (nextInput) {
+                nextInput.focus();
+            }
+            break;
+        case 'ArrowUp':
+            event.preventDefault();
+            const currentCellUp = parseInt(input.getAttribute('data-cell'));
+            const currentAntigenUp = input.getAttribute('data-antigen');
+            
+            // Find the input in the previous cell with the same antigen
+            const prevInput = inputs.find(inp => 
+                parseInt(inp.getAttribute('data-cell')) === currentCellUp - 1 && 
+                inp.getAttribute('data-antigen') === currentAntigenUp
+            );
+            if (prevInput) {
+                prevInput.focus();
+            }
+            break;
+        case 'Tab':
+            // Allow default tab behavior but add visual feedback
+            input.classList.add('nav-highlight');
+            setTimeout(() => {
+                input.classList.remove('nav-highlight');
+            }, 200);
+            break;
     }
 }
 
@@ -429,18 +576,23 @@ function clearSearch() {
 }
 
 // Edit functionality
-function editAntigram(antigramId) {
-    fetch(`/api/antigrams/${antigramId}`)
-        .then(response => response.json())
-        .then(antigram => {
-            currentEditingAntigram = antigram;
-            populateEditModal(antigram);
-            document.getElementById("editModal").style.display = "block";
-        })
-        .catch(error => {
-            console.error("Error fetching antigram:", error);
-            alert("Failed to fetch antigram details.");
-        });
+async function editAntigram(antigramId) {
+    try {
+        // Load antigram and antigen system data (cached) in parallel
+        const [antigramResponse, antigenSystemData] = await Promise.all([
+            fetch(`/api/antigrams/${antigramId}`),
+            loadAntigenSystemDataCached()
+        ]);
+
+        const antigram = await antigramResponse.json();
+
+        currentEditingAntigram = antigram;
+        populateEditModal(antigram);
+        document.getElementById("editModal").style.display = "block";
+    } catch (error) {
+        console.error("Error fetching antigram:", error);
+        alert("Failed to fetch antigram details.");
+    }
 }
 
 // Edit Modal Table Highlighting
@@ -457,19 +609,57 @@ function populateEditModal(antigram) {
     header.innerHTML = "";
     body.innerHTML = "";
 
-    // Get all unique antigens from the first cell
+    // Use the original template's antigen order if available, otherwise fall back to extracting from cells
     let antigens = [];
-    if (antigram.cells && antigram.cells.length > 0 && antigram.cells[0].reactions) {
+    if (antigram.antigen_order && antigram.antigen_order.length > 0) {
+        // Use the original template's antigen order
+        antigens = antigram.antigen_order;
+    } else if (antigram.cells && antigram.cells.length > 0 && antigram.cells[0].reactions) {
+        // Fallback: extract from the first cell's reactions
         antigens = Object.keys(antigram.cells[0].reactions);
     }
 
-    // Create header row
-    let headerRow = "<tr><th>Cell #</th>";
-    antigens.forEach(antigen => {
-        headerRow += `<th>${antigen}</th>`;
+    // Create system header row
+    let systemHeaderRow = "<tr><th>Cell #</th>";
+    let i = 0;
+    let systemBorders = []; // Track where system borders should be
+    
+    while (i < antigens.length) {
+        const agName = antigens[i];
+        const sys = antigenSystemData[agName] || 'Unknown';
+        let span = 1;
+        for (let j = i + 1; j < antigens.length; j++) {
+            const nextAg = antigens[j];
+            const nextSys = antigenSystemData[nextAg] || 'Unknown';
+            if (nextSys === sys) span++;
+            else break;
+        }
+        
+        // Add border classes for system separation
+        let borderClasses = "antigen-system-header";
+        if (i > 0) borderClasses += " system-border-left";
+        if (i + span < antigens.length) borderClasses += " system-border-right";
+        
+        systemHeaderRow += `<th colspan="${span}" class="${borderClasses}">${sys}</th>`;
+        
+        // Track border positions for body cells
+        if (i > 0) systemBorders.push(i);
+        if (i + span < antigens.length) systemBorders.push(i + span);
+        
+        i += span;
+    }
+    systemHeaderRow += "</tr>";
+    header.innerHTML = systemHeaderRow;
+
+    // Create antigen name header row
+    let antigenHeaderRow = "<tr><th>Cell #</th>";
+    antigens.forEach((antigen, index) => {
+        let borderClasses = "";
+        if (systemBorders.includes(index)) borderClasses = "system-border-left";
+        antigenHeaderRow += `<th class="${borderClasses}">${antigen}</th>`;
     });
-    headerRow += "</tr>";
-    header.innerHTML = headerRow;
+    antigenHeaderRow += "</tr>";
+    header.innerHTML += antigenHeaderRow;
 
     // Populate body with current values
     let bodyHtml = "";
@@ -477,10 +667,13 @@ function populateEditModal(antigram) {
         bodyHtml += `<tr><td>${cell.cell_number}</td>`;
         
         // Ensure we iterate through antigens in the same order as the header
-        antigens.forEach(antigen => {
+        antigens.forEach((antigen, index) => {
             let reaction = cell.reactions[antigen] || '';
+            let borderClasses = "";
+            if (systemBorders.includes(index)) borderClasses = "system-border-left";
+            
             bodyHtml += `
-                <td>
+                <td class="${borderClasses}">
                     <input 
                         type="text" 
                         class="edit-reaction-input" 
@@ -489,6 +682,7 @@ function populateEditModal(antigram) {
                         maxlength="1" 
                         value="${reaction}"
                         oninput="validateEditReactionInput(this)"
+                        onkeydown="handleKeyNavigation(event, this)"
                         autocomplete="off"
                     />
                 </td>`;
@@ -496,6 +690,13 @@ function populateEditModal(antigram) {
         
         bodyHtml += "</tr>";
     });
+    
+    // Debug logging to verify antigen order and system data
+    console.log("Edit Modal - Template Name:", antigram.name);
+    console.log("Edit Modal - Antigen Order:", antigens);
+    console.log("Edit Modal - Original antigen_order from API:", antigram.antigen_order);
+    console.log("Edit Modal - Antigen System Data:", antigenSystemData);
+    console.log("Edit Modal - Sample antigen system lookup:", antigens.map(ag => `${ag}: ${antigenSystemData[ag]}`));
     body.innerHTML = bodyHtml;
 
     // Add input highlight logic for edit modal
