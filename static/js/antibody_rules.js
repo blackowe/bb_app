@@ -483,25 +483,139 @@ function deleteAllRules() {
 
 // Initialize default rules
 function initializeDefaultRules() {
-    if (confirm('This will replace all existing rules with the default rules. Continue?')) {
+    if (confirm('This will add default rules without clearing existing ones. Continue?')) {
         fetch('/api/antibody-rules/initialize', {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         })
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(data.error);
-                return;
+                alert('Error: ' + data.error);
+            } else {
+                alert(data.message);
+                loadRules();
             }
-            loadRules();
-            alert('Default rules initialized successfully!');
         })
         .catch(error => {
-            console.error('Error initializing default rules:', error);
+            console.error('Error:', error);
             alert('Error initializing default rules');
         });
     }
-} 
+}
+
+function resetToDefaults() {
+    if (confirm('This will clear ALL existing rules and reset to defaults. This action cannot be undone. Continue?')) {
+        fetch('/api/antibody-rules/reset', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                alert(data.message);
+                loadRules();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error resetting to defaults');
+        });
+    }
+}
+
+function exportRules() {
+    fetch('/api/antibody-rules/export', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            // Create and download the file
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `antibody_rules_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            alert('Rules exported successfully!');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error exporting rules');
+    });
+}
+
+function importRules() {
+    // Create a file input element
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    
+    fileInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Ask user if they want to clear existing rules
+                const clearExisting = confirm('Do you want to clear existing rules before importing? (Cancel to add to existing rules)');
+                
+                const importData = {
+                    rules: data.rules || data,
+                    clear_existing: clearExisting
+                };
+                
+                fetch('/api/antibody-rules/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(importData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                    } else {
+                        alert(data.message);
+                        loadRules();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error importing rules');
+                });
+            } catch (error) {
+                alert('Error reading file: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
+}
 
 // Expose modal and form functions to global scope for button handlers
 window.openRuleModal = openRuleModal;

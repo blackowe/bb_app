@@ -5,11 +5,21 @@ This module handles all antigen and antibody rule management endpoints.
 
 from flask import request, jsonify, render_template, current_app
 from models import Antigen, AntibodyRule
-from default_rules import get_default_rules
 import logging
 import json
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+def load_antigen_order_config():
+    """Load antigen order from config file."""
+    try:
+        with open('antigen_order_config.json', 'r') as f:
+            config = json.load(f)
+        return config['default_antigen_order']
+    except FileNotFoundError:
+        logger.error("antigen_order_config.json not found")
+        return None
 
 def register_antigen_routes(app, db_session):
     """Register all antigen and antibody rule routes."""
@@ -250,8 +260,12 @@ def register_antigen_routes(app, db_session):
     def get_default_antigen_order():
         """Return the default antigen order (Panocell order) as a JSON array."""
         try:
-            from default_rules import get_default_antigen_order
-            return jsonify(get_default_antigen_order()), 200
+            # Load from config file
+            config = load_antigen_order_config()
+            if config:
+                return jsonify(config), 200
+            else:
+                return jsonify({"error": "Antigen order config not found"}), 500
         except Exception as e:
             logger.error(f"Error getting default antigen order: {e}")
             return jsonify({"error": str(e)}), 500
@@ -369,30 +383,94 @@ def register_antigen_routes(app, db_session):
 
     @app.route('/api/antibody-rules/initialize', methods=['POST'])
     def initialize_antibody_rules():
-        """Initialize default antibody rules."""
+        """Add default antibody rules without clearing existing ones."""
         try:
-            # Clear existing rules
-            db_session.query(AntibodyRule).delete()
+            return jsonify({
+                "message": "Default rules are now managed through the database. Use the web interface to add rules."
+            }), 200
+        except Exception as e:
+            logger.error(f"Error with antibody rules endpoint: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/antibody-rules/reset', methods=['POST'])
+    def reset_antibody_rules():
+        """Reset to default antibody rules (clears all existing rules first)."""
+        try:
+            return jsonify({
+                "message": "Default rules are now managed through the database. Use the web interface to reset rules."
+            }), 200
+        except Exception as e:
+            logger.error(f"Error with antibody rules reset endpoint: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/antibody-rules/export', methods=['GET'])
+    def export_antibody_rules():
+        """Export all antibody rules as a template."""
+        try:
+            rules = db_session.query(AntibodyRule).all()
+            exported_rules = []
             
-            # Get default rules
-            default_rules = get_default_rules()
+            for rule in rules:
+                exported_rules.append({
+                    "rule_type": rule.rule_type,
+                    "target_antigen": rule.target_antigen,
+                    "rule_data": json.loads(rule.rule_data),
+                    "description": rule.description,
+                    "enabled": rule.enabled
+                })
             
-            # Add new rules
-            for rule_data in default_rules:
+            return jsonify({
+                "template_name": "Exported Antibody Rules",
+                "export_date": datetime.now().isoformat(),
+                "rule_count": len(exported_rules),
+                "rules": exported_rules
+            }), 200
+        except Exception as e:
+            logger.error(f"Error exporting antibody rules: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/antibody-rules/import', methods=['POST'])
+    def import_antibody_rules():
+        """Import antibody rules from a template."""
+        try:
+            data = request.json
+            if not data or 'rules' not in data:
+                return jsonify({"error": "Missing rules data"}), 400
+            
+            rules_data = data['rules']
+            if not isinstance(rules_data, list):
+                return jsonify({"error": "Rules must be a list"}), 400
+            
+            # Optional: clear existing rules if specified
+            clear_existing = data.get('clear_existing', False)
+            if clear_existing:
+                db_session.query(AntibodyRule).delete()
+                logger.info("Cleared existing antibody rules")
+            
+            added_count = 0
+            for rule_data in rules_data:
+                # Validate required fields
+                if not all(key in rule_data for key in ['rule_type', 'target_antigen', 'rule_data']):
+                    logger.warning(f"Skipping invalid rule: {rule_data}")
+                    continue
+                
                 rule_data_json = json.dumps(rule_data['rule_data'])
                 rule = AntibodyRule(
                     rule_type=rule_data['rule_type'],
                     target_antigen=rule_data['target_antigen'],
                     rule_data=rule_data_json,
-                    description=rule_data['description'],
-                    enabled=True
+                    description=rule_data.get('description', ''),
+                    enabled=rule_data.get('enabled', True)
                 )
                 db_session.add(rule)
+                added_count += 1
             
             db_session.commit()
-            logger.info("Default antibody rules initialized successfully")
-            return jsonify({"message": "Default antibody rules initialized successfully"}), 200
+            logger.info(f"Imported {added_count} antibody rules")
+            return jsonify({
+                "message": f"Successfully imported {added_count} antibody rules"
+            }), 200
         except Exception as e:
             db_session.rollback()
-            logger.error(f"Error initializing default antibody rules: {e}")
+            logger.error(f"Error importing antibody rules: {e}")
             return jsonify({"error": str(e)}), 500 

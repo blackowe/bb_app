@@ -43,8 +43,11 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Existing Antibody Rules</h5>
                 <div>
+                    <button class="btn btn-outline-primary me-2" onclick="exportRules()">Export Rules</button>
+                    <button class="btn btn-outline-success me-2" onclick="importRules()">Import Rules</button>
+                    <button class="btn btn-warning me-2" onclick="resetToDefaults()">Reset to Defaults</button>
                     <button class="btn btn-danger me-2" onclick="deleteAllRules()">Delete All Rules</button>
-                    <button class="btn btn-success" onclick="initializeDefaultRules()">Initialize Default Rules</button>
+                    <button class="btn btn-success" onclick="initializeDefaultRules()">Add Default Rules</button>
                 </div>
             </div>
         </div>

@@ -48,35 +48,38 @@ if "sqlite" in str(engine.url):
     Base.metadata.create_all(bind=engine)
     logger.info("SQLite database initialized")
     
-    # Initialize default rules
+    # Check if antibody rules exist, if not initialize with defaults
     try:
         with app.app_context():
-            from default_rules import get_default_rules
             from models import AntibodyRule
             
-            # Clear existing rules
-            db_session.query(AntibodyRule).delete()
-            
-            # Get default rules
-            default_rules = get_default_rules()
-            
-            # Add new rules
-            for rule_data in default_rules:
-                # Convert rule_data to JSON string for storage
-                rule_data_json = json.dumps(rule_data['rule_data'])
-                rule = AntibodyRule(
-                    rule_type=rule_data['rule_type'],
-                    target_antigen=rule_data['target_antigen'],
-                    rule_data=rule_data_json,
-                    description=rule_data['description'],
-                    enabled=True
-                )
-                db_session.add(rule)
-            
-            db_session.commit()
-            logger.info("Default antibody rules initialized successfully")
+            # Only initialize if no rules exist
+            existing_rules = db_session.query(AntibodyRule).count()
+            if existing_rules == 0:
+                logger.info("No antibody rules found in database, initializing with defaults")
+                                
+                # Get default rules
+                default_rules = get_default_rules()
+                
+                # Add new rules
+                for rule_data in default_rules:
+                    # Convert rule_data to JSON string for storage
+                    rule_data_json = json.dumps(rule_data['rule_data'])
+                    rule = AntibodyRule(
+                        rule_type=rule_data['rule_type'],
+                        target_antigen=rule_data['target_antigen'],
+                        rule_data=rule_data_json,
+                        description=rule_data['description'],
+                        enabled=True
+                    )
+                    db_session.add(rule)
+                
+                db_session.commit()
+                logger.info("Default antibody rules initialized successfully")
+            else:
+                logger.info(f"Found {existing_rules} existing antibody rules in database, skipping initialization")
     except Exception as e:
-        logger.error(f"Error initializing default antibody rules: {str(e)}")
+        logger.error(f"Error checking/initializing antibody rules: {str(e)}")
 
 # Initialize pandas managers
 antigram_manager = PandasAntigramManager(db_session)
