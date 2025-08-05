@@ -14,11 +14,24 @@ logger = logging.getLogger(__name__)
 def load_antigen_order_config():
     """Load antigen order from config file."""
     try:
-        with open('antigen_order_config.json', 'r') as f:
-            config = json.load(f)
-        return config['default_antigen_order']
-    except FileNotFoundError:
+        import os
+        # Try multiple possible locations
+        possible_paths = [
+            'antigen_order_config.json',  # Current working directory
+            'utils/antigen_order_config.json',  # Utils subdirectory
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'utils', 'antigen_order_config.json')  # Relative to this file
+        ]
+        
+        for config_path in possible_paths:
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                return config['default_antigen_order']
+        
         logger.error("antigen_order_config.json not found")
+        return None
+    except Exception as e:
+        logger.error(f"Error loading antigen order config: {e}")
         return None
 
 def register_antigen_routes(app, db_session):

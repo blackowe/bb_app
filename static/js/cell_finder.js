@@ -7,16 +7,31 @@ async function loadAntigenInputTable() {
     try {
         // Fetch valid antigens
         const validResp = await fetch("/api/antigens/valid");
+        if (!validResp.ok) {
+            throw new Error(`Failed to fetch valid antigens: ${validResp.status}`);
+        }
         const validAntigens = await validResp.json();
+        
         // Fetch default order
         const orderResp = await fetch("/api/antigens/default-order");
+        if (!orderResp.ok) {
+            throw new Error(`Failed to fetch default order: ${orderResp.status}`);
+        }
         const panocellOrder = await orderResp.json();
+        
+        // Ensure panocellOrder is an array
+        if (!Array.isArray(panocellOrder)) {
+            console.error("❌ Expected array for panocellOrder, got:", typeof panocellOrder, panocellOrder);
+            throw new Error("Invalid response format for default antigen order");
+        }
+        
         // Group by system
         const systemGroups = {};
         validAntigens.forEach(ag => {
             if (!systemGroups[ag.system]) systemGroups[ag.system] = [];
             systemGroups[ag.system].push(ag.name);
         });
+        
         // Build antigen order: Panocell order first, then any remaining valid antigens grouped by system
         let antigenOrder = [];
         let used = new Set();
@@ -169,8 +184,12 @@ function showErrorMessage() {
     const antigenInputRow = document.getElementById("antigen-input-row");
     const searchBtn = document.getElementById("search-btn");
     
-    antigenHeaderRow.innerHTML = `<th>Error</th>`;
-    antigenInputRow.innerHTML = `<td class="text-danger">Failed to load antigens. Please refresh the page.</td>`;
+    if (antigenHeaderRow) {
+        antigenHeaderRow.innerHTML = `<th>Error</th>`;
+    }
+    if (antigenInputRow) {
+        antigenInputRow.innerHTML = `<td class="text-danger">Failed to load antigens. Please refresh the page.</td>`;
+    }
     
     if (searchBtn) {
         searchBtn.disabled = true;
