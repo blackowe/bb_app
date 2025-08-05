@@ -3,22 +3,55 @@ import numpy as np
 from typing import Dict, List, Set, Tuple, Optional, Any
 from core.pandas_models import PandasAntigramManager, PandasPatientReactionManager
 import json
-import logging
-
-# Set up logging
-logger = logging.getLogger(__name__)
-
 
 class AntibodyRuleEvaluator:
     """
     Evaluates antibody rules against patient reaction data.
     Supports all rule types: ABSpecificRO, Homo, Hetero, SingleAG, LowF
+    Now optimized with set operations for improved performance.
     """
     
     def __init__(self, antigram_manager: PandasAntigramManager, 
                  patient_reaction_manager: PandasPatientReactionManager):
         self.antigram_manager = antigram_manager
         self.patient_reaction_manager = patient_reaction_manager
+        
+        # Cache for set-based operations
+        self._antigen_cell_sets = {}
+        self._patient_reaction_sets = {}
+        self._sets_initialized = False
+    
+    def _initialize_set_cache(self):
+        """Initialize set-based cache for faster rule evaluation."""
+        if self._sets_initialized:
+            return
+        
+        # Build antigen cell sets
+        self._antigen_cell_sets = {}
+        for antigram_id, matrix in self.antigram_manager.antigram_matrices.items():
+            for antigen in matrix.columns:
+                if antigen not in self._antigen_cell_sets:
+                    self._antigen_cell_sets[antigen] = {}
+                
+                # Get cells expressing this antigen
+                antigen_positive = matrix[antigen] == '+'
+                positive_cells = set(antigen_positive[antigen_positive].index)
+                
+                self._antigen_cell_sets[antigen][antigram_id] = positive_cells
+        
+        # Build patient reaction sets
+        self._patient_reaction_sets = {}
+        for antigram_id in self.antigram_manager.antigram_matrices.keys():
+            patient_reactions = self.patient_reaction_manager.get_reactions_for_antigram(antigram_id)
+            
+            negative_cells = set()
+            for cell_number, reaction in patient_reactions.items():
+                if reaction == '0':
+                    negative_cells.add(cell_number)
+            
+            self._patient_reaction_sets[antigram_id] = negative_cells
+        
+        self._sets_initialized = True
     
     def evaluate_rule(self, rule: Dict, suspected_antibody: str = None) -> Tuple[bool, List[Dict]]:
         """
@@ -31,11 +64,12 @@ class AntibodyRuleEvaluator:
         Returns:
             Tuple of (is_satisfied, ruling_out_cells)
         """
+        # Initialize set cache if needed
+        self._initialize_set_cache()
+        
         rule_type = rule['rule_type']
         target_antigen = rule['target_antigen']
         rule_data = rule['rule_data']
-        
-        logger.debug(f"Evaluating {rule_type} rule for antigen {target_antigen}")
         
         if rule_type == 'abspecific':
             return self._evaluate_abspecific_rule(target_antigen, rule_data, suspected_antibody)
@@ -44,12 +78,47 @@ class AntibodyRuleEvaluator:
         elif rule_type == 'hetero':
             return self._evaluate_hetero_rule(target_antigen, rule_data)
         elif rule_type == 'single':
-            return self._evaluate_single_rule(target_antigen, rule_data)
+            return self._evaluate_single_rule_optimized(target_antigen, rule_data)
         elif rule_type == 'lowf':
             return self._evaluate_lowf_rule(target_antigen, rule_data)
         else:
-            logger.warning(f"Unknown rule type: {rule_type}")
             return False, []
+    
+    def _evaluate_single_rule_optimized(self, target_antigen: str, rule_data: Dict) -> Tuple[bool, List[Dict]]:
+        """
+        Evaluate SingleAG([A,B,C,...]) rule using set operations for better performance.
+        Antigens in the SingleAG() category are ruled out when patient is 0 and cell has expression of +.
+        """
+        antigens = rule_data.get('antigens', [])
+        
+        if target_antigen not in antigens:
+            return False, []
+        
+        ruling_out_cells = []
+        
+        # Use set operations for faster evaluation
+        if target_antigen in self._antigen_cell_sets:
+            for antigram_id, expressing_cells in self._antigen_cell_sets[target_antigen].items():
+                if antigram_id in self._patient_reaction_sets:
+                    negative_cells = self._patient_reaction_sets[antigram_id]
+                    
+                    # Find cells that express the antigen AND have negative patient reactions
+                    ruling_out_cell_set = expressing_cells & negative_cells
+                    
+                    if ruling_out_cell_set:
+                        metadata = self.antigram_manager.get_antigram_metadata(antigram_id)
+                        for cell_number in ruling_out_cell_set:
+                            ruling_out_cells.append({
+                                'cell_number': cell_number,
+                                'lot_number': metadata['lot_number'],
+                                'antigram_id': antigram_id,
+                                'rule_type': 'single',
+                                'antigen': target_antigen
+                            })
+        
+        is_satisfied = len(ruling_out_cells) >= 1  # At least one cell needed
+        
+        return is_satisfied, ruling_out_cells
     
     def _evaluate_abspecific_rule(self, target_antigen: str, rule_data: Dict, suspected_antibody: str) -> Tuple[bool, List[Dict]]:
         """
@@ -58,7 +127,6 @@ class AntibodyRuleEvaluator:
         Must have minimum of X number of occurrences for B antigen to be ruled out.
         """
         if not suspected_antibody:
-            logger.debug("No suspected antibody provided for ABSpecificRO rule")
             return False, []
         
         antibody = rule_data.get('antibody')
@@ -67,7 +135,6 @@ class AntibodyRuleEvaluator:
         required_count = rule_data.get('required_count', 1)
         
         if antibody != suspected_antibody:
-            logger.debug(f"ABSpecificRO rule antibody {antibody} doesn't match suspected {suspected_antibody}")
             return False, []
         
         ruling_out_cells = []
@@ -100,7 +167,6 @@ class AntibodyRuleEvaluator:
                     })
         
         is_satisfied = len(ruling_out_cells) >= required_count
-        logger.debug(f"ABSpecificRO rule for {target_antigen}: {len(ruling_out_cells)}/{required_count} cells found")
         
         return is_satisfied, ruling_out_cells
     
@@ -142,7 +208,6 @@ class AntibodyRuleEvaluator:
                             })
         
         is_satisfied = len(ruling_out_cells) >= 1  # At least one cell needed
-        logger.debug(f"Homo rule for {target_antigen}: {len(ruling_out_cells)} cells found")
         
         return is_satisfied, ruling_out_cells
     
@@ -157,7 +222,6 @@ class AntibodyRuleEvaluator:
         required_count = rule_data.get('required_count', 3)
         
         if antigen_a != target_antigen:
-            logger.debug(f"Hetero rule antigen_a {antigen_a} doesn't match target {target_antigen}")
             return False, []
         
         ruling_out_cells = []
@@ -190,7 +254,6 @@ class AntibodyRuleEvaluator:
                     })
         
         is_satisfied = len(ruling_out_cells) >= required_count
-        logger.debug(f"Hetero rule for {target_antigen}: {len(ruling_out_cells)}/{required_count} cells found")
         
         return is_satisfied, ruling_out_cells
     
@@ -202,7 +265,6 @@ class AntibodyRuleEvaluator:
         antigens = rule_data.get('antigens', [])
         
         if target_antigen not in antigens:
-            logger.debug(f"Target antigen {target_antigen} not in SingleAG antigens {antigens}")
             return False, []
         
         ruling_out_cells = []
@@ -232,7 +294,6 @@ class AntibodyRuleEvaluator:
                     })
         
         is_satisfied = len(ruling_out_cells) >= 1  # At least one cell needed
-        logger.debug(f"SingleAG rule for {target_antigen}: {len(ruling_out_cells)} cells found")
         
         return is_satisfied, ruling_out_cells
     
@@ -245,7 +306,6 @@ class AntibodyRuleEvaluator:
         
         if target_antigen in antigens:
             # Low frequency antigens are automatically ruled out
-            logger.debug(f"LowF rule: {target_antigen} automatically ruled out due to low prevalence")
             return True, [{'rule_type': 'lowf', 'antigen': target_antigen, 'reason': 'low_prevalence'}]
         
         return False, []

@@ -6,9 +6,6 @@ This module handles all antibody identification and patient reaction endpoints.
 from flask import request, jsonify, render_template, current_app
 from core.enhanced_antibody_identifier import EnhancedAntibodyIdentifier
 from core.antibody_rule_validator import AntibodyRuleValidator
-import logging
-
-logger = logging.getLogger(__name__)
 
 def register_antibody_routes(app, db_session):
     """Register all antibody identification routes."""
@@ -23,8 +20,8 @@ def register_antibody_routes(app, db_session):
         try:
             # Clear patient reactions when the page loads
             patient_reaction_manager.clear_reactions()
-        except Exception as e:
-            logger.error(f"Error clearing patient reactions: {e}")
+        except Exception:
+            pass
         
         return render_template('antibody_id.html')
 
@@ -110,7 +107,6 @@ def register_antibody_routes(app, db_session):
                     }), 201
 
             except Exception as e:
-                logger.error(f"Error in handle_patient_reactions POST: {e}")
                 return jsonify({"error": str(e)}), 500
 
         elif request.method == 'GET':
@@ -135,8 +131,7 @@ def register_antibody_routes(app, db_session):
                     return jsonify({"message": "No patient reactions found.", "patient_reactions": []}), 200
 
                 return jsonify({"patient_reactions": all_reactions}), 200
-            except Exception as e:
-                logger.error(f"Error in handle_patient_reactions GET: {e}")
+            except Exception:
                 return jsonify({"error": "Internal Server Error"}), 500
 
     @app.route('/api/patient-reactions/batch', methods=['POST'])
@@ -189,7 +184,6 @@ def register_antibody_routes(app, db_session):
             }), 201
             
         except Exception as e:
-            logger.error(f"Error in batch_patient_reactions: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/clear-patient-reactions', methods=['DELETE'])
@@ -199,7 +193,6 @@ def register_antibody_routes(app, db_session):
             patient_reaction_manager.clear_reactions()
             return antibody_identification()
         except Exception as e:
-            logger.error(f"Error in clear_patient_reactions: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/delete-patient-reaction', methods=['DELETE'])
@@ -225,7 +218,6 @@ def register_antibody_routes(app, db_session):
             patient_reaction_manager.delete_reaction(antigram_id, cell_number)
             return antibody_identification()
         except Exception as e:
-            logger.error(f"Error in delete_patient_reaction: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/antibody-identification', methods=['GET'])
@@ -235,7 +227,6 @@ def register_antibody_routes(app, db_session):
             results = antibody_identification()
             return jsonify(results), 200
         except Exception as e:
-            logger.error(f"Error in get_antibody_identification: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/abid', methods=['GET'])
@@ -245,7 +236,6 @@ def register_antibody_routes(app, db_session):
             results = antibody_identification()
             return jsonify(results), 200
         except Exception as e:
-            logger.error(f"Error in get_abid: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/debug/patient-reactions', methods=['GET'])
@@ -289,7 +279,6 @@ def register_antibody_routes(app, db_session):
             }), 200
             
         except Exception as e:
-            logger.error(f"Error in debug_patient_reactions: {e}")
             return jsonify({"error": str(e)}), 500
 
     # NEW: Rule validation endpoints
@@ -303,7 +292,6 @@ def register_antibody_routes(app, db_session):
             return jsonify(validation_results), 200
             
         except Exception as e:
-            logger.error(f"Error in validate_rules: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/validate-rules/summary', methods=['GET'])
@@ -316,7 +304,6 @@ def register_antibody_routes(app, db_session):
             return jsonify({"summary": summary}), 200
             
         except Exception as e:
-            logger.error(f"Error in validate_rules_summary: {e}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/validate-rules/missing', methods=['GET'])
@@ -333,7 +320,6 @@ def register_antibody_routes(app, db_session):
             }), 200
             
         except Exception as e:
-            logger.error(f"Error in get_missing_rules: {e}")
             return jsonify({"error": str(e)}), 500
 
     def antibody_identification():
@@ -342,24 +328,16 @@ def register_antibody_routes(app, db_session):
             # Create enhanced antibody identifier
             identifier = EnhancedAntibodyIdentifier(antigram_manager, patient_reaction_manager, db_session)
             
-            # Add debugging information
-            logger.info(f"Patient reactions DataFrame shape: {patient_reaction_manager.reactions_df.shape}")
-            logger.info(f"Patient reactions DataFrame: {patient_reaction_manager.reactions_df}")
-            
             # Load rules for debugging
             from models import AntibodyRule
             rules = db_session.query(AntibodyRule).filter_by(enabled=True).all()
-            logger.info(f"Loaded {len(rules)} rules from database")
             
             # Perform identification
             results = identifier.identify_antibodies()
             
-            logger.info(f"ABID Results: {results}")
-            
             return results
 
         except Exception as e:
-            logger.error(f"Error in antibody identification: {str(e)}")
             return {
                 "ruled_out": [],
                 "stro": [],

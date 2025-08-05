@@ -1,10 +1,6 @@
 import pandas as pd
 from typing import Dict, List, Set, Tuple, Optional
 from core.pandas_models import PandasAntigramManager, PandasPatientReactionManager
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class AntibodyRuleValidator:
     """
@@ -67,15 +63,13 @@ class AntibodyRuleValidator:
     def _load_rules_from_database(self) -> List[Dict]:
         """Load antibody rules from database."""
         if not self.db_session:
-            logger.warning("No database session available, using empty rules")
             return []
         
         try:
             from models import AntibodyRule
             rules = self.db_session.query(AntibodyRule).filter_by(enabled=True).all()
             return [rule.to_dict() for rule in rules]
-        except Exception as e:
-            logger.error(f"Error loading rules from database: {e}")
+        except Exception:
             return []
     
     def _get_all_antigram_antigens(self) -> Set[str]:

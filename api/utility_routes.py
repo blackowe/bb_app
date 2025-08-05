@@ -4,9 +4,6 @@ This module handles cell finding and other utility endpoints.
 """
 
 from flask import request, jsonify, render_template, current_app
-import logging
-
-logger = logging.getLogger(__name__)
 
 def register_utility_routes(app, db_session):
     """Register all utility routes."""
@@ -32,15 +29,12 @@ def register_utility_routes(app, db_session):
                     return jsonify({"error": "Unsupported Media Type: Content-Type must be 'application/json'"}), 415
 
                 antigen_profile = request.json.get("antigenProfile", {})
-                logger.debug(f"Received Antigen Profile: {antigen_profile}")
 
                 if not antigen_profile:
                     return jsonify({"error": "Missing antigen profile in request body"}), 400
 
                 # Use pandas pattern matching
                 matching_cells = antigram_manager.find_cells_by_pattern(antigen_profile)
-
-                logger.info(f"Matching Cells Found: {len(matching_cells)}")
 
                 # Format results with all antigens, not just search pattern
                 results = []
@@ -77,7 +71,6 @@ def register_utility_routes(app, db_session):
                 }), 200
 
         except Exception as e:
-            logger.error(f"Error in Cell Finder Backend: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/antigens", methods=["GET"])
@@ -91,5 +84,4 @@ def register_utility_routes(app, db_session):
 
             return jsonify({"antigens": antigen_list}), 200
         except Exception as e:
-            logger.error(f"Error getting antigens: {e}")
             return jsonify({"error": str(e)}), 500 
